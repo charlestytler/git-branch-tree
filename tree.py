@@ -30,7 +30,7 @@ class GitBranch:
                 if delta.strip().startswith("ahead"):
                     self.ahead = int(delta.strip("ahead "))
                 elif delta.strip().startswith("behind"):
-                    self.ahead = int(delta.strip("behind "))
+                    self.behind = int(delta.strip("behind "))
 
 
 def parse_branches():
@@ -53,25 +53,34 @@ def parse_branches():
 
     return branches, tree
 
-def print_children_recursive(branches, tree, node, curr_depth):
-    for child in tree[node]:
-        if "origin/" in child:
-            print(child)
+
+def print_branch_details(branches, branch_name, prefix):
+    if branch_name not in branches:
+        print(branch_name)
+    else:
+        branch = branches[branch_name]
+        print(prefix, end="")
+        print(f"{branch.name} \t\t {branch.commit} +{branch.ahead}:-{branch.behind}  {branch.commit_description}")
+
+
+def print_children_recursive(branches, tree, node, prefix):
+    for index, child in enumerate(tree[node]):
+        if not prefix:
+            append_curr_line = ""
+            append_children = " "
+        elif index < len(tree[node]) - 1:
+            append_curr_line = "├──"
+            append_children = "│  "
         else:
-            """
-            # │   │   ├──
-            #  │   └──
-            """
-            branch = branches[child]
-            if curr_depth > 0:
-                print("   " * (curr_depth - 1), end='')
-                print("└──", end='')
-            print(f"{branch.name} Commit: {branch.commit} +{branch.ahead}:-{branch.behind}  {branch.commit_description}")
-        print_children_recursive(branches, tree, child, curr_depth + 1)
+            append_curr_line = "└──"
+            append_children = "   "
+
+        print_branch_details(branches, child, prefix + append_curr_line)
+        print_children_recursive(branches, tree, child, prefix + append_children)
 
 
 branches, tree = parse_branches()
-print_children_recursive(branches, tree, "root", 0)
+print_children_recursive(branches, tree, "root", "")
 
 
 
