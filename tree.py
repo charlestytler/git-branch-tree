@@ -3,6 +3,16 @@
 import subprocess
 from collections import defaultdict
 
+class ColorFG:
+    RED = "\x1b[31m"
+    GREEN = "\x1b[32m"
+    DEFAULT = "\x1b[39m"
+    
+class Format:
+    BOLD = "\x1b[1m"
+    ITALIC = "\x1b[3m"
+    RESET = "\x1b[0m"
+
 class GitBranch:
     def __init__(self, branch_printout):
         branch_details = branch_printout.decode('ASCII')
@@ -44,26 +54,15 @@ def parse_branches():
         branches[branch.name] = branch
     
         # Build tree contents of the form {"parent": "child"}.
-        if branch.upstream_branch is not None:
-            if "origin/" in branch.upstream_branch:
-                tree["root"].append(branch.upstream_branch)
-            tree[branch.upstream_branch].append(branch.name)
-        else:
+        if branch.upstream_branch is None or "origin/" in branch.upstream_branch:
             tree["root"].append(branch.name)
+        else:
+            tree[branch.upstream_branch].append(branch.name)
 
     return branches, tree
 
 
-def print_branch_details(branches, branch_name, prefix):
-    if branch_name not in branches:
-        print(branch_name)
-    else:
-        branch = branches[branch_name]
-        print(prefix, end="")
-        print(f"{branch.name} \t\t {branch.commit} +{branch.ahead}:-{branch.behind}  {branch.commit_description}")
-
-
-def print_children_recursive(branches, tree, node, prefix):
+def collect_depth_first_print_order(tree, node, prefix, print_outs):
     for index, child in enumerate(tree[node]):
         if not prefix:
             append_curr_line = ""
@@ -75,13 +74,42 @@ def print_children_recursive(branches, tree, node, prefix):
             append_curr_line = "└──"
             append_children = "   "
 
-        print_branch_details(branches, child, prefix + append_curr_line)
-        print_children_recursive(branches, tree, child, prefix + append_children)
+        print_outs.append([prefix + append_curr_line, child])
+        collect_depth_first_print_order(tree, child, prefix + append_children, print_outs)
+
+def print_table(print_outs, branches):
+    first_column_width = max([len(print_out[0]) + len(print_out[1]) for print_out in print_outs]) + 2
+    header = "Branch".ljust(first_column_width) + "Deltas\tCommit\tDescription"
+    print(Format.BOLD + header + Format.RESET)
+    print("="*(len(header) + 10))
+    for print_out in print_outs:
+        branch = branches[print_out[1]]
+        first_column = print_out[0] + print_out[1]
+
+        if branch.ahead > 0:
+            ahead = ColorFG.GREEN + "+" + str(branch.ahead) + ColorFG.DEFAULT
+        else:
+            ahead = "+" +str(branch.ahead)
+        if branch.behind > 0:
+            behind = ColorFG.RED + "-" + str(branch.behind) + ColorFG.DEFAULT
+        else:
+            behind = "-" + str(branch.behind)
+        deltas = ahead + ":" + behind
+
+        row_text = first_column.ljust(first_column_width) + deltas + "\t" + branch.commit + "\t" + branch.commit_description
+        if branch.active_branch:
+            print(Format.ITALIC + row_text + Format.RESET)
+        else:
+            print(row_text)
+
+def main():
+    branches, tree = parse_branches()
+    print_outs = []
+    collect_depth_first_print_order(tree, "root", "", print_outs)
+    print_table(print_outs, branches)
 
 
-branches, tree = parse_branches()
-print_children_recursive(branches, tree, "root", "")
-
-
+if __name__ == "__main__":
+    main()
 
 
