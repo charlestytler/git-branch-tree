@@ -11,7 +11,6 @@ class ColorFG:
     
 class Format:
     BOLD = "\x1b[1m"
-    ITALIC = "\x1b[3m"
     RESET = "\x1b[0m"
 
 class GitBranch:
@@ -99,7 +98,7 @@ def print_table(print_outs, branches):
 
         row_text = first_column.ljust(first_column_width) + deltas + "\t" + branch.commit + "\t" + branch.commit_description
         if branch.active_branch:
-            print(Format.ITALIC + row_text + Format.RESET)
+            print(Format.BOLD + row_text + Format.RESET)
         else:
             print(row_text)
 
