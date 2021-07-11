@@ -2,6 +2,14 @@
 
 Executing tree.py from within a git repository will query all git branches and print them to the terminal in a hierarchical tree format, according to their upstream branch mapping.
 
+## Installation
+Install the tree.py script (requires Python3 installed) and set it as a git alias to `git tree`:
+```
+git clone https://github.com/charlestytler/git-branch-tree.git /tmp/git-branch-tree &&\
+cp /tmp/git-branch-tree/tree.py /usr/local/tree.py &&\
+git config --global alias.tree '!/usr/local/tree.py'
+```
+
 ### Default git branch terminal output
 ```
 > git br -vv
