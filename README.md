@@ -5,7 +5,7 @@ Executing git-tree.py from within a git repository will query all git branches a
 ## Installation
 Install the git-tree.py script (requires Python3 installed) and set it as a git alias to `git tree`:
 ```
-curl -sL -o ~/.git-tree.py https://raw.githubusercontent.com/charlestytler/git-branch-tree/refs/heads/master/git-tree.py && chmod +x ~/.git-tree.py $$ git config --global alias.tree '!~/.git-tree.py'
+curl -sL -o ~/.git-tree.py https://raw.githubusercontent.com/charlestytler/git-branch-tree/refs/heads/master/git-tree.py && chmod +x ~/.git-tree.py && git config --global alias.tree '!~/.git-tree.py'
 ```
 or with git clone:
 ```
@@ -15,8 +15,8 @@ git config --global alias.tree '!~/.git-tree.py'
 ```
 
 ## Usage
-When in a git repository run the command `git tree`
-This will show a tree of all branches installed.
+When in a git repository run the command `git tree`  
+This will show a tree of all branches installed.  
 Note that when creating branches you should be assigning their upstream branch, i.e. `git branch --set-upstream <parent_branch>` or `git branch -u <parent_branch>`.
 
 ## Example
