@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*- 
 
+import os
 import subprocess
 from collections import defaultdict
 
@@ -11,14 +12,18 @@ class ColorFG:
     
 class Format:
     BOLD = "\x1b[1m"
+    ITALIC = "\x1b[3m"
     RESET = "\x1b[0m"
 
 class GitBranch:
     def __init__(self, branch_printout):
         branch_details = branch_printout.decode('ASCII')
         # Parse details of form "<*> <name> <commit> ([<upstream_info>]) <commit_details>"
+        # Active branch in current worktree starts with "* ".
+        # Active branch in other worktree(s) starts with "+ ".
         self.active_branch = branch_details.startswith("*")
-        self.name, branch_details = branch_details.lstrip("* ").split(" ", maxsplit=1)
+        self.other_worktree_active_branch = branch_details.startswith("+")
+        self.name, branch_details = branch_details.lstrip("* ").lstrip("+ ").split(" ", maxsplit=1)
         self.commit, branch_details = branch_details.lstrip().split(" ", maxsplit=1)
         try:
             self.upstream_branch = subprocess.check_output(["git","rev-parse","--abbrev-ref",self.name+"@{u}"], stderr=subprocess.STDOUT).decode('ASCII').strip(" \n")
@@ -26,6 +31,9 @@ class GitBranch:
             self.upstream_branch = None
         self.ahead = 0
         self.behind = 0
+        if self.other_worktree_active_branch:
+            other_worktree_basedir, branch_details = branch_details.lstrip(" (").split(")", maxsplit=1)
+            self.other_worktree_basedir = os.path.basename(other_worktree_basedir)
         if self.upstream_branch is not None:
             upstream_info, branch_details = branch_details.lstrip(" [").split("]", maxsplit=1)
             self._parse_upstream_info(upstream_info)
@@ -78,13 +86,21 @@ def collect_depth_first_print_order(tree, node, prefix, print_outs):
         collect_depth_first_print_order(tree, child, prefix + append_children, print_outs)
 
 def print_table(print_outs, branches):
-    first_column_width = max([len(print_out[0]) + len(print_out[1]) for print_out in print_outs]) + 2
+    max_width_for_other_worktree = 0
+    for print_out in print_outs:
+        branch = branches[print_out[1]]
+        if branch.other_worktree_active_branch:
+            max_width_for_other_worktree = max(max_width_for_other_worktree, len(branch.other_worktree_basedir) + 3)
+
+    first_column_width = max([len(print_out[0]) + len(print_out[1]) + max_width_for_other_worktree for print_out in print_outs]) + 2
     header = "Branch".ljust(first_column_width) + "Deltas\tCommit\tDescription"
     print(Format.BOLD + header + Format.RESET)
     print("="*(len(header) + 10))
     for print_out in print_outs:
         branch = branches[print_out[1]]
         first_column = print_out[0] + print_out[1]
+        if branch.other_worktree_active_branch:
+            first_column += " (" + branch.other_worktree_basedir + ")"
 
         if branch.ahead > 0:
             ahead = ColorFG.GREEN + "+" + str(branch.ahead) + ColorFG.DEFAULT
@@ -99,6 +115,8 @@ def print_table(print_outs, branches):
         row_text = first_column.ljust(first_column_width) + deltas + "\t" + branch.commit + "\t" + branch.commit_description
         if branch.active_branch:
             print(Format.BOLD + row_text + Format.RESET)
+        elif branch.other_worktree_active_branch:
+            print(Format.ITALIC + row_text + Format.RESET)
         else:
             print(row_text)
 
