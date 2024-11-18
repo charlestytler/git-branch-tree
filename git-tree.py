@@ -25,7 +25,7 @@ class GitBranch:
         # Active branch in current worktree starts with "* ".
         # Active branch in other worktree(s) starts with "+ ".
         self.active_branch = branch_details.startswith("*")
-        self.other_worktree_active_branch = branch_details.startswith("+")
+        self.active_on_other_worktree = branch_details.startswith("+")
         self.name, branch_details = (
             branch_details.lstrip("* ").lstrip("+ ").split(" ", maxsplit=1)
         )
@@ -43,7 +43,7 @@ class GitBranch:
             self.upstream_branch = None
         self.ahead = 0
         self.behind = 0
-        if self.other_worktree_active_branch:
+        if self.active_on_other_worktree:
             other_worktree_basedir, branch_details = branch_details.lstrip(" (").split(
                 ")", maxsplit=1
             )
@@ -104,33 +104,36 @@ def collect_depth_first_print_order(tree, node, prefix, print_outs):
         )
 
 
-def print_table(print_outs, branches):
-    max_width_for_other_worktree = 0
-    for print_out in print_outs:
-        branch = branches[print_out[1]]
-        if branch.other_worktree_active_branch:
-            max_width_for_other_worktree = max(
-                max_width_for_other_worktree, len(branch.other_worktree_basedir) + 3
-            )
+def calculate_branch_column_width(print_outs, branches):
+    branch_column_widths = []
+    for prefix, branch_name in print_outs:
+        branch = branches[branch_name]
 
-    first_column_width = (
-        max(
-            [
-                len(print_out[0]) + len(print_out[1]) + max_width_for_other_worktree
-                for print_out in print_outs
-            ]
-        )
-        + 2
-    )
-    header = "Branch".ljust(first_column_width) + "Deltas\tCommit\tDescription"
+        worktree_width = 0
+        if branch.active_on_other_worktree:
+            worktree_width = len(branch.other_worktree_basedir) + 3
+
+        branch_width = len(prefix) + len(branch_name) + worktree_width
+        branch_column_widths.append(branch_width)
+    return max(branch_column_widths) + 2
+
+
+def print_table(print_outs, branches):
+    # Print header
+    first_column_width = calculate_branch_column_width(print_outs, branches)
+    header = "Branch".ljust(first_column_width) + "\tDeltas\tCommit\tDescription"
     print(Format.BOLD + header + Format.RESET)
     print("=" * (len(header) + 10))
-    for print_out in print_outs:
-        branch = branches[print_out[1]]
-        first_column = print_out[0] + print_out[1]
-        if branch.other_worktree_active_branch:
+
+    for tree_prefix, branch_name in print_outs:
+        branch = branches[branch_name]
+
+        # Branch name column
+        first_column = tree_prefix + branch_name
+        if branch.active_on_other_worktree:
             first_column += " (" + branch.other_worktree_basedir + ")"
 
+        # Deltas column
         if branch.ahead > 0:
             ahead = ColorFG.GREEN + "+" + str(branch.ahead) + ColorFG.DEFAULT
         else:
@@ -149,9 +152,11 @@ def print_table(print_outs, branches):
             + "\t"
             + branch.commit_description
         )
+
+        # Print row
         if branch.active_branch:
             print(Format.BOLD + row_text + Format.RESET)
-        elif branch.other_worktree_active_branch:
+        elif branch.active_on_other_worktree:
             print(Format.ITALIC + row_text + Format.RESET)
         else:
             print(row_text)
