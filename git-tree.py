@@ -3,7 +3,9 @@
 
 import os
 import subprocess
+
 from collections import defaultdict
+from sys import exit
 
 
 class ColorFG:
@@ -158,6 +160,11 @@ def print_table(print_outs, branches):
 
 
 def main():
+    try:
+        subprocess.check_output(["git", "rev-parse", "--is-inside-work-tree"])
+    except:
+        exit(1)
+
     branches, tree = parse_branches()
     print_outs = []
     collect_depth_first_print_order(tree, "root", "", print_outs)
