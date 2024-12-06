@@ -11,6 +11,7 @@ from sys import exit
 class ColorFG:
     RED = "\x1b[31m"
     GREEN = "\x1b[32m"
+    YELLOW = "\x1b[33m"
     DEFAULT = "\x1b[39m"
 
 
@@ -57,6 +58,10 @@ class GitBranch:
             self._parse_upstream_info(upstream_info)
         self.commit_description = branch_details.lstrip()
 
+        self.has_remote = False
+        self.ahead_of_remote = False
+        self._parse_remote_info()
+
     def _parse_upstream_info(self, upstream_info):
         # Parse upstream_info of form "<upstream_branch>: (ahead #), (behind #)"
         upstream_branch_with_deltas = upstream_info.split(":")
@@ -67,6 +72,32 @@ class GitBranch:
                     self.ahead = int(delta.strip("ahead "))
                 elif delta.strip().startswith("behind"):
                     self.behind = int(delta.strip("behind "))
+
+    def _parse_remote_info(self):
+        grep_for_remote = subprocess.check_output(
+            ["git", "branch", "-r", "-l", "*" + self.name]
+        ).decode("ASCII")
+        self.has_remote = len(grep_for_remote) != 0
+        if not self.has_remote or self.name in ("main", "master"):
+            return
+        try:
+            compare_local_remote = [
+                "git",
+                "show",
+                self.name + "@{u}.." + self.name,
+                "--oneline",
+                "--decorate=short",
+            ]
+            res = subprocess.check_output(compare_local_remote).decode()
+            if len(res) == 0:
+                # No commits different between upstream and current branch.
+                self.ahead_of_remote = False
+                return
+            latest_commit = res.split("\n")[0]
+            # If "origin/<branch>" is in the decorator for the lastest commit, then the remote branch is up to date.
+            self.ahead_of_remote = f"origin/{self.name}" not in latest_commit
+        except Exception as inst:
+            print("An error occurred with running or parsing git show", inst)
 
 
 def parse_branches():
@@ -146,8 +177,18 @@ def print_table(print_outs, branches):
             behind = "-" + str(branch.behind)
         deltas = ahead + ":" + behind
 
+        # Remote column
+        remote_text = "\uE0A0" if branch.has_remote else " "
+        if branch.has_remote and branch.ahead_of_remote:
+            remote_text = ColorFG.YELLOW + remote_text + ColorFG.DEFAULT
+
+        # Note: `ljust()` does not ignore escape characters (including for setting colors).
+        # Therefore, `remote_text` cannot be combined into `first_column` or it would mess up
+        # the padding.
         row_text = (
-            first_column.ljust(first_column_width)
+            remote_text
+            + " "
+            + first_column.ljust(first_column_width)
             + deltas
             + "\t"
             + branch.commit
