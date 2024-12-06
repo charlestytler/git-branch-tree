@@ -154,7 +154,7 @@ def calculate_branch_column_width(print_outs, branches):
 def print_table(print_outs, branches):
     # Print header
     first_column_width = calculate_branch_column_width(print_outs, branches)
-    header = "Branch".ljust(first_column_width) + "\tDeltas\tCommit\tDescription"
+    header = "Branch".ljust(first_column_width) + "  Deltas  Commit  Description"
     print(Format.BOLD + header + Format.RESET)
     print("=" * (len(header) + 10))
 
@@ -167,15 +167,18 @@ def print_table(print_outs, branches):
             first_column += " (" + branch.other_worktree_basedir + ")"
 
         # Deltas column
+        branch_ahead_str = str(branch.ahead)
+        branch_behind_str = str(branch.behind)
         if branch.ahead > 0:
-            ahead = ColorFG.GREEN + "+" + str(branch.ahead) + ColorFG.DEFAULT
+            ahead = ColorFG.GREEN + "+" + branch_ahead_str + ColorFG.DEFAULT
         else:
             ahead = "+" + str(branch.ahead)
         if branch.behind > 0:
-            behind = ColorFG.RED + "-" + str(branch.behind) + ColorFG.DEFAULT
+            behind = ColorFG.RED + "-" + branch_behind_str + ColorFG.DEFAULT
         else:
-            behind = "-" + str(branch.behind)
+            behind = "-" + branch_behind_str
         deltas = ahead + ":" + behind
+        deltas_column_length = len(branch_ahead_str) + len(branch_behind_str) + 3
 
         # Remote column
         remote_text = "\uE0A0" if branch.has_remote else " "
@@ -190,9 +193,9 @@ def print_table(print_outs, branches):
             + " "
             + first_column.ljust(first_column_width)
             + deltas
-            + "\t"
+                + max(8 - deltas_column_length, 1) * " " # Defalut width of 8 (+XX:-XX ), but enforce 1 space
             + branch.commit
-            + "\t"
+            + "  "
             + branch.commit_description
         )
 
