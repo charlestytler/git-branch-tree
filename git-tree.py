@@ -62,6 +62,9 @@ class GitBranch:
         self.has_remote = False
         self.ahead_of_remote = False
         self._parse_remote_info()
+        self.pr_number = ""
+        self.pr_url = ""
+        self.pr_state = ""
         self._parse_pr_info(github_pr_info)
 
     def _parse_upstream_info(self, upstream_info):
@@ -103,20 +106,22 @@ class GitBranch:
 
     def _parse_pr_info(self, github_pr_info):
         if self.name not in github_pr_info:
-            self.pr_number = ""
-            self.pr_url = ""
-            self.pr_state = ""
             return
         self.pr_number = github_pr_info[self.name]["number"]
         self.pr_url = github_pr_info[self.name]["url"]
         self.pr_state = colorize_github_pr_status(github_pr_info[self.name]["state"], github_pr_info[self.name]["reviewDecision"])
 
 def github_pr_query():
-    gh_pr_list = subprocess.check_output(["gh", "pr", "list", "--state", "all", "--json", "headRefName,number,url,state,reviewDecision"])
-    gh_pr_list = json.loads(gh_pr_list.decode("ASCII").strip())
+    FIELDS = ["headRefName", "number", "url", "state", "reviewDecision"]
+    try:
+        gh_pr_list = subprocess.check_output(["gh", "pr", "list", "--state", "all", "--json", ",".join(FIELDS)])
+        gh_pr_list = json.loads(gh_pr_list.decode("ASCII").strip())
+    except Exception as inst:
+        print("Unable to fetch github PR data", inst)
+        gh_pr_list = {}
     pr_info = {}
     for pr in gh_pr_list:
-        pr_info[pr["headRefName"]] = {"number": pr["number"], "url": pr["url"], "state": pr["state"], "reviewDecision": pr["reviewDecision"]}
+        pr_info[pr[FIELDS[0]]] = {field: pr[field] for field in FIELDS[1:]}
     return pr_info
 
 def colorize_github_pr_status(pr_state, pr_review_decision):
