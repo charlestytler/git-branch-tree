@@ -13,12 +13,14 @@ class ColorFG:
     RED = "\x1b[31m"
     GREEN = "\x1b[32m"
     YELLOW = "\x1b[33m"
+    BLUE = "\x1b[34m"
     DEFAULT = "\x1b[39m"
 
 
 class Format:
     BOLD = "\x1b[1m"
     ITALIC = "\x1b[3m"
+    UNDERLINE = "\x1b[4m"
     RESET = "\x1b[0m"
 
 
@@ -67,8 +69,8 @@ class GitBranch:
         self.has_remote = False
         self.ahead_of_remote = False
         self._parse_remote_info()
-        self.pr_number = ""
         self.pr_url = ""
+        self.pr_hyperlink = ""
         self.pr_state = ""
         self._parse_pr_info(github_pr_info)
 
@@ -112,8 +114,10 @@ class GitBranch:
     def _parse_pr_info(self, github_pr_info):
         if self.name not in github_pr_info:
             return
-        self.pr_number = github_pr_info[self.name]["number"]
         self.pr_url = github_pr_info[self.name]["url"]
+        self.pr_hyperlink = (ColorFG.BLUE + Format.UNDERLINE
+            + hyperlink("#" + str(github_pr_info[self.name]["number"]), self.pr_url)
+            + ColorFG.DEFAULT + Format.RESET)
         self.pr_state = colorize_github_pr_status(github_pr_info[self.name]["state"], github_pr_info[self.name]["reviewDecision"])
 
 def github_pr_query():
@@ -200,13 +204,15 @@ def calculate_branch_column_width(print_outs, branches):
         branch_column_widths.append(branch_width)
     return max(branch_column_widths) + 2
 
+def hyperlink(text, url):
+    return f"\033]8;;{url}\033\\{text}\033]8;;\033\\"
 
 def print_table(print_outs, branches):
     # Print header
     first_column_width = calculate_branch_column_width(print_outs, branches)
-    header = "Branch".ljust(first_column_width) + "  Deltas  Commit   Status  PR Link"
+    header = "Branch".ljust(first_column_width) + "  Deltas  Commit   Status  PR"
     print(Format.BOLD + header + Format.RESET)
-    print("=" * (len(header) + 10))
+    print("=" * (len(header) + 2))
 
     for tree_prefix, branch_name in print_outs:
         branch = branches[branch_name]
@@ -252,7 +258,7 @@ def print_table(print_outs, branches):
             + "  "
             + branch.pr_state
             + "  "
-            + branch.pr_url
+            + branch.pr_hyperlink
             # TODO: Description is too long to fit, maybe set up a flag to show it.
             # + branch.commit_description
         )
