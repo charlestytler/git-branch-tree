@@ -211,7 +211,7 @@ def print_table(print_outs, branches):
     first_column_width = calculate_branch_column_width(print_outs, branches)
     header = "Branch".ljust(first_column_width) + "  Deltas  Commit   Status  PR"
     print(Format.BOLD + header + Format.RESET)
-    print("=" * (len(header) + 1))
+    print("=" * (len(header) + 2))
 
     for tree_prefix, branch_name in print_outs:
         branch = branches[branch_name]
