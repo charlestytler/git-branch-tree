@@ -67,8 +67,8 @@ class GitBranch:
         self.has_remote = False
         self.ahead_of_remote = False
         self._parse_remote_info()
-        self.pr_number = ""
         self.pr_url = ""
+        self.pr_hyperlink = ""
         self.pr_state = ""
         if self.name in github_pr_info:
             self._parse_pr_info(github_pr_info[self.name])
@@ -111,8 +111,8 @@ class GitBranch:
             print("An error occurred with running or parsing git show", inst)
 
     def _parse_pr_info(self, github_branch_pr_info):
-        self.pr_number = github_branch_pr_info["number"]
         self.pr_url = github_branch_pr_info["url"]
+        self.pr_hyperlink = hyperlink("#" + str(github_branch_pr_info["number"]), self.pr_url)
         self.pr_state = colorize_github_pr_status(github_branch_pr_info["state"], github_branch_pr_info["reviewDecision"])
 
 def github_pr_query():
@@ -199,6 +199,9 @@ def calculate_branch_column_width(print_outs, branches):
         branch_column_widths.append(branch_width)
     return max(branch_column_widths) + 2
 
+def hyperlink(text, url):
+    return f"\033]8;;{url}\033\\{text}\033]8;;\033\\"
+    # return f"\e]8;;{url}\e\\{text}\e]8;;\e\\"
 
 def print_table(print_outs, branches):
     # Print header
@@ -251,7 +254,7 @@ def print_table(print_outs, branches):
             + "  "
             + branch.pr_state
             + "  "
-            + branch.pr_url
+            + branch.pr_hyperlink
             # TODO: Description is too long to fit, maybe set up a flag to show it.
             # + branch.commit_description
         )
