@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import argparse
 import os
 import subprocess
 import json
@@ -15,10 +16,10 @@ class ColorFG:
     YELLOW = "\x1b[33m"
     DEFAULT = "\x1b[39m"
 
-
 class Format:
     BOLD = "\x1b[1m"
     ITALIC = "\x1b[3m"
+    INVERSE = "\x1b[7m"
     RESET = "\x1b[0m"
 
 
@@ -200,7 +201,7 @@ def calculate_branch_column_width(print_outs, branches):
     return max(branch_column_widths) + 2
 
 
-def print_table(print_outs, branches):
+def print_table(print_outs, branches, highlight_branch=""):
     # Print header
     first_column_width = calculate_branch_column_width(print_outs, branches)
     header = "Branch".ljust(first_column_width) + "  Deltas  Commit   Status  PR Link"
@@ -256,13 +257,20 @@ def print_table(print_outs, branches):
             # + branch.commit_description
         )
 
-        # Print row
+        # Add any appropriate styling modifiers
+        modifiers_prepend = ""
+        modifiers_append = ""
         if branch.active_branch:
-            print(Format.BOLD + row_text + Format.RESET)
-        elif branch.active_on_other_worktree:
-            print(Format.ITALIC + row_text + Format.RESET)
-        else:
-            print(row_text)
+            modifiers_prepend += Format.BOLD
+            modifiers_append += Format.RESET
+        if branch.active_on_other_worktree:
+            modifiers_prepend += Format.ITALIC
+            modifiers_append += Format.RESET
+        if branch.name == highlight_branch:
+            modifiers_prepend += Format.INVERSE
+            modifiers_append += Format.RESET
+
+        print(modifiers_prepend + row_text + modifiers_append)
 
 
 def main():
@@ -271,10 +279,14 @@ def main():
     except:
         exit(1)
 
+    parser = argparse.ArgumentParser(description="Print git branches showing upstream branch linkages.")
+    parser.add_argument('--highlight', help = "Highlight provided branch name")
+    args = parser.parse_args()
+
     branches, tree = parse_branches()
     print_outs = []
     collect_depth_first_print_order(tree, "root", "", print_outs)
-    print_table(print_outs, branches)
+    print_table(print_outs, branches, args.highlight)
 
 
 if __name__ == "__main__":
