@@ -101,6 +101,8 @@ class GitBranch:
 
 
 def parse_branches():
+    main_branch_name = subprocess.check_output(["git", "symbolic-ref", "--short", "refs/remotes/origin/HEAD"])
+    main_branch_name = main_branch_name.decode("ASCII").strip("\n").split("/")[1]
     git_br_output = subprocess.check_output(["git", "branch", "-vv"])
     git_br_output_lines = git_br_output.splitlines()
 
@@ -111,8 +113,11 @@ def parse_branches():
         branches[branch.name] = branch
 
         # Build tree contents of the form {"parent": "child"}.
-        if branch.upstream_branch is None or "origin/" in branch.upstream_branch:
+        if branch.name == main_branch_name:
             tree["root"].append(branch.name)
+        elif branch.upstream_branch is None or "origin/" in branch.upstream_branch:
+            # Assume the branch is downstream of the main branch.
+            tree[main_branch_name].append(branch.name)
         else:
             tree[branch.upstream_branch].append(branch.name)
 
