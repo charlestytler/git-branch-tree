@@ -21,6 +21,11 @@ class Format:
     RESET = "\x1b[0m"
 
 
+def assume_main_is_upstream(upstream_branch):
+    # Note: also returns true for the main branch itself
+    return upstream_branch is None or "origin/" in upstream_branch
+
+
 class GitBranch:
     def __init__(self, branch_printout):
         branch_details = branch_printout.decode("ASCII")
@@ -115,7 +120,7 @@ def parse_branches():
         # Build tree contents of the form {"parent": "child"}.
         if branch.name == main_branch_name:
             tree["root"].append(branch.name)
-        elif branch.upstream_branch is None or "origin/" in branch.upstream_branch:
+        elif assume_main_is_upstream(branch.upstream_branch):
             # Assume the branch is downstream of the main branch.
             tree[main_branch_name].append(branch.name)
         else:
@@ -184,6 +189,10 @@ def print_table(print_outs, branches):
             behind = "-" + branch_behind_str
         deltas = ahead + ":" + behind
         deltas_column_length = len(branch_ahead_str) + len(branch_behind_str) + 3
+
+        if assume_main_is_upstream(branch.upstream_branch):
+            # Clear the deltas since it's not correct relative to main.
+            deltas = " " * deltas_column_length
 
         # Remote column
         remote_text = "\uE0A0" if branch.has_remote else " "
