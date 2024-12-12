@@ -126,6 +126,8 @@ def colorize_github_pr_status(pr_state, pr_review_decision):
             status += ColorFG.GREEN + " " + ColorFG.DEFAULT
         elif pr_review_decision == "CHANGES_REQUESTED":
             status += ColorFG.RED + " " + ColorFG.DEFAULT
+        else:
+            status += "  "  #for column alignment
         return status
     elif pr_state == "CLOSED":
         return ColorFG.RED + pr_state + ColorFG.DEFAULT
@@ -229,7 +231,7 @@ def print_table(print_outs, branches):
                 + max(8 - deltas_column_length, 1) * " " # Defalut width of 8 (+XX:-XX ), but enforce 1 space
             + branch.commit
             + "  "
-            + branch.pr_state.ljust(6)
+            + branch.pr_state
             + "  "
             + branch.pr_url
             # TODO: Description is too long to fit, maybe set up a flag to show it.
