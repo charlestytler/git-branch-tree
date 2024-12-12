@@ -172,11 +172,14 @@ def print_table(print_outs, branches):
         branch = branches[branch_name]
 
         # Branch name column
+        column_width_count = len(tree_prefix) + len(branch_name)
         if assume_main_is_upstream(branch.upstream_branch):
             tree_prefix = ColorFG.YELLOW + tree_prefix + ColorFG.DEFAULT
         first_column = tree_prefix + branch_name
         if branch.active_on_other_worktree:
             first_column += " (" + branch.other_worktree_basedir + ")"
+            column_width_count += len(branch.other_worktree_basedir) + 3
+        first_column += " " * (first_column_width - column_width_count)
 
         # Deltas column
         branch_ahead_str = str(branch.ahead)
@@ -207,7 +210,7 @@ def print_table(print_outs, branches):
         row_text = (
             remote_text
             + " "
-            + first_column.ljust(first_column_width)
+            + first_column
             + deltas
                 + max(8 - deltas_column_length, 1) * " " # Defalut width of 8 (+XX:-XX ), but enforce 1 space
             + branch.commit
