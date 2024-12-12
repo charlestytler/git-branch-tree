@@ -13,12 +13,14 @@ class ColorFG:
     RED = "\x1b[31m"
     GREEN = "\x1b[32m"
     YELLOW = "\x1b[33m"
+    BLUE = "\x1b[34m"
     DEFAULT = "\x1b[39m"
 
 
 class Format:
     BOLD = "\x1b[1m"
     ITALIC = "\x1b[3m"
+    UNDERLINE = "\x1b[4m"
     RESET = "\x1b[0m"
 
 
@@ -112,7 +114,9 @@ class GitBranch:
 
     def _parse_pr_info(self, github_branch_pr_info):
         self.pr_url = github_branch_pr_info["url"]
-        self.pr_hyperlink = hyperlink("#" + str(github_branch_pr_info["number"]), self.pr_url)
+        self.pr_hyperlink = (ColorFG.BLUE + Format.UNDERLINE
+            + hyperlink("#" + str(github_branch_pr_info["number"]), self.pr_url) 
+            + ColorFG.DEFAULT + Format.RESET)
         self.pr_state = colorize_github_pr_status(github_branch_pr_info["state"], github_branch_pr_info["reviewDecision"])
 
 def github_pr_query():
@@ -205,9 +209,9 @@ def hyperlink(text, url):
 def print_table(print_outs, branches):
     # Print header
     first_column_width = calculate_branch_column_width(print_outs, branches)
-    header = "Branch".ljust(first_column_width) + "  Deltas  Commit   Status  PR Link"
+    header = "Branch".ljust(first_column_width) + "  Deltas  Commit   Status  PR"
     print(Format.BOLD + header + Format.RESET)
-    print("=" * (len(header) + 10))
+    print("=" * (len(header) + 1))
 
     for tree_prefix, branch_name in print_outs:
         branch = branches[branch_name]
