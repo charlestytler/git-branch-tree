@@ -67,8 +67,8 @@ class GitBranch:
         self.has_remote = False
         self.ahead_of_remote = False
         self._parse_remote_info()
-        self.pr_number = ""
         self.pr_url = ""
+        self.pr_hyperlink = ""
         self.pr_state = ""
         self._parse_pr_info(github_pr_info)
 
@@ -112,8 +112,8 @@ class GitBranch:
     def _parse_pr_info(self, github_pr_info):
         if self.name not in github_pr_info:
             return
-        self.pr_number = github_pr_info[self.name]["number"]
         self.pr_url = github_pr_info[self.name]["url"]
+        self.pr_hyperlink = hyperlink("#" + str(github_pr_info[self.name]["number"]), self.pr_url)
         self.pr_state = colorize_github_pr_status(github_pr_info[self.name]["state"], github_pr_info[self.name]["reviewDecision"])
 
 def github_pr_query():
@@ -200,6 +200,9 @@ def calculate_branch_column_width(print_outs, branches):
         branch_column_widths.append(branch_width)
     return max(branch_column_widths) + 2
 
+def hyperlink(text, url):
+    return f"\033]8;;{url}\033\\{text}\033]8;;\033\\"
+    # return f"\e]8;;{url}\e\\{text}\e]8;;\e\\"
 
 def print_table(print_outs, branches):
     # Print header
@@ -252,7 +255,7 @@ def print_table(print_outs, branches):
             + "  "
             + branch.pr_state
             + "  "
-            + branch.pr_url
+            + branch.pr_hyperlink
             # TODO: Description is too long to fit, maybe set up a flag to show it.
             # + branch.commit_description
         )
