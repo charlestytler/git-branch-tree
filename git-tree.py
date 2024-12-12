@@ -201,7 +201,6 @@ def calculate_branch_column_width(print_outs, branches):
 
 def hyperlink(text, url):
     return f"\033]8;;{url}\033\\{text}\033]8;;\033\\"
-    # return f"\e]8;;{url}\e\\{text}\e]8;;\e\\"
 
 def print_table(print_outs, branches):
     # Print header
