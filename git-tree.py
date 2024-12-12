@@ -22,6 +22,11 @@ class Format:
     RESET = "\x1b[0m"
 
 
+def assume_main_is_upstream(upstream_branch):
+    # Note: also returns true for the main branch itself
+    return upstream_branch is None or "origin/" in upstream_branch
+
+
 class GitBranch:
     def __init__(self, branch_printout, github_pr_info):
         branch_details = branch_printout.decode("ASCII")
@@ -140,6 +145,8 @@ def colorize_github_pr_status(pr_state, pr_review_decision):
         return ColorFG.GREEN + pr_state + ColorFG.DEFAULT
 
 def parse_branches():
+    main_branch_name = subprocess.check_output(["git", "symbolic-ref", "--short", "refs/remotes/origin/HEAD"])
+    main_branch_name = main_branch_name.decode("ASCII").strip("\n").split("/")[1]
     git_br_output = subprocess.check_output(["git", "branch", "-vv"])
     git_br_output_lines = git_br_output.splitlines()
     github_pr_info = github_pr_query()
@@ -151,8 +158,11 @@ def parse_branches():
         branches[branch.name] = branch
 
         # Build tree contents of the form {"parent": "child"}.
-        if branch.upstream_branch is None or "origin/" in branch.upstream_branch:
+        if branch.name == main_branch_name:
             tree["root"].append(branch.name)
+        elif assume_main_is_upstream(branch.upstream_branch):
+            # Assume the branch is downstream of the main branch.
+            tree[main_branch_name].append(branch.name)
         else:
             tree[branch.upstream_branch].append(branch.name)
 
@@ -219,6 +229,10 @@ def print_table(print_outs, branches):
             behind = "-" + branch_behind_str
         deltas = ahead + ":" + behind
         deltas_column_length = len(branch_ahead_str) + len(branch_behind_str) + 3
+
+        if assume_main_is_upstream(branch.upstream_branch):
+            # Clear the deltas since it's not correct relative to main.
+            deltas = " " * deltas_column_length
 
         # Remote column
         remote_text = "\uE0A0" if branch.has_remote else " "
