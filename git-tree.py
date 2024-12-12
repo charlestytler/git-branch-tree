@@ -172,6 +172,8 @@ def print_table(print_outs, branches):
         branch = branches[branch_name]
 
         # Branch name column
+        if assume_main_is_upstream(branch.upstream_branch):
+            tree_prefix = ColorFG.YELLOW + tree_prefix + ColorFG.DEFAULT
         first_column = tree_prefix + branch_name
         if branch.active_on_other_worktree:
             first_column += " (" + branch.other_worktree_basedir + ")"
