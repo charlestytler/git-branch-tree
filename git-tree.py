@@ -152,14 +152,14 @@ def colorize_github_pr_status(pr_state, pr_review_decision):
         return ColorFG.GREEN + pr_state + ColorFG.DEFAULT
 
 
-def parse_branches():
+def parse_branches(concise):
     main_branch_name = subprocess.check_output(
         ["git", "symbolic-ref", "--short", "refs/remotes/origin/HEAD"]
     )
     main_branch_name = main_branch_name.decode("ASCII").strip("\n").split("/")[1]
     git_br_output = subprocess.check_output(["git", "branch", "-vv"])
     git_br_output_lines = git_br_output.splitlines()
-    github_pr_info = github_pr_query()
+    github_pr_info = github_pr_query() if not concise else {}
 
     tree = defaultdict(list)
     branches = {}
@@ -212,16 +212,19 @@ def calculate_branch_column_width(print_outs, branches):
     return max(branch_column_widths) + 2
 
 
-def print_table(print_outs, branches, highlight_branch=""):
+def print_table(print_outs, branches, consise=False, highlight_branch=""):
     """
     Take the branch-structure print_outs,
     Derive additional column information according to the branches[],
+    Exlude some detailed information when concise is true,
     Add highlighting for the specified highlight_branch,
     Print the table
     """
     # Print header
     first_column_width = calculate_branch_column_width(print_outs, branches)
-    header = "Branch".ljust(first_column_width) + "  Deltas  Commit   Status  PR Link"
+    header = "Branch".ljust(first_column_width) + "  Deltas  Commit"
+    if not concise:
+        header += "   Status  PR Link"
     print(Format.BOLD + header + Format.RESET)
     print("=" * (len(header) + 10))
 
@@ -264,16 +267,19 @@ def print_table(print_outs, branches, highlight_branch=""):
             + " "
             + first_column.ljust(first_column_width)
             + deltas
-            + max(8 - deltas_column_length, 1)
-            * " "  # Defalut width of 8 (+XX:-XX ), but enforce 1 space
+            # Default width of 8 (+XX:-XX ), but enforce 1 space
+            + max(8 - deltas_column_length, 1) * " "
             + branch.commit
-            + "  "
-            + branch.pr_state
-            + "  "
-            + branch.pr_url
-            # TODO: Description is too long to fit, maybe set up a flag to show it.
-            # + branch.commit_description
         )
+        if not concise:
+            row_text += (
+                "  "
+                + branch.pr_state
+                + "  "
+                + branch.pr_url
+                # TODO: Description is too long to fit, maybe set up a flag to show it.
+                # + branch.commit_description
+            )
 
         # Add any appropriate styling modifiers
         modifiers_prepend = ""
@@ -300,13 +306,18 @@ def main():
     parser = argparse.ArgumentParser(
         description="Print git branches showing upstream branch linkages."
     )
+    parser.add_argument(
+        "--concise",
+        action="store_true",
+        help="Concise output that does not include PR information",
+    )
     parser.add_argument("--highlight", help="Highlight provided branch name")
     args = parser.parse_args()
 
-    branches, tree = parse_branches()
+    branches, tree = parse_branches(args.concise)
     print_outs = []
     collect_depth_first_print_order(tree, "root", "", print_outs)
-    print_table(print_outs, branches, args.highlight)
+    print_table(print_outs, branches, args.concise, args.highlight)
 
 
 if __name__ == "__main__":
