@@ -3,6 +3,7 @@
 
 import os
 import subprocess
+import json
 
 from collections import defaultdict
 from sys import exit
@@ -27,7 +28,7 @@ def assume_main_is_upstream(upstream_branch):
 
 
 class GitBranch:
-    def __init__(self, branch_printout):
+    def __init__(self, branch_printout, github_pr_info):
         branch_details = branch_printout.decode("ASCII")
         # Parse details of form "<*> <name> <commit> ([<upstream_info>]) <commit_details>"
         # Active branch in current worktree starts with "* ".
@@ -66,6 +67,11 @@ class GitBranch:
         self.has_remote = False
         self.ahead_of_remote = False
         self._parse_remote_info()
+        self.pr_number = ""
+        self.pr_url = ""
+        self.pr_state = ""
+        if self.name in github_pr_info:
+            self._parse_pr_info(github_pr_info[self.name])
 
     def _parse_upstream_info(self, upstream_info):
         # Parse upstream_info of form "<upstream_branch>: (ahead #), (behind #)"
@@ -104,17 +110,50 @@ class GitBranch:
         except Exception as inst:
             print("An error occurred with running or parsing git show", inst)
 
+    def _parse_pr_info(self, github_branch_pr_info):
+        self.pr_number = github_branch_pr_info["number"]
+        self.pr_url = github_branch_pr_info["url"]
+        self.pr_state = colorize_github_pr_status(github_branch_pr_info["state"], github_branch_pr_info["reviewDecision"])
+
+def github_pr_query():
+    FIELDS = ["headRefName", "number", "url", "state", "reviewDecision"]
+    try:
+        gh_pr_list = subprocess.check_output(["gh", "pr", "list", "--state", "all", "--json", ",".join(FIELDS)])
+        gh_pr_list = json.loads(gh_pr_list.decode("ASCII").strip())
+    except Exception as inst:
+        print("Unable to fetch github PR data", inst)
+        return {}
+    pr_info = {}
+    for pr in gh_pr_list:
+        pr_info[pr[FIELDS[0]]] = {field: pr[field] for field in FIELDS[1:]}
+    return pr_info
+
+def colorize_github_pr_status(pr_state, pr_review_decision):
+    if pr_state == "OPEN":
+        status = ColorFG.YELLOW + pr_state + ColorFG.DEFAULT
+        if pr_review_decision == "APPROVED":
+            status += ColorFG.GREEN + " " + ColorFG.DEFAULT
+        elif pr_review_decision == "CHANGES_REQUESTED":
+            status += ColorFG.RED + " " + ColorFG.DEFAULT
+        else:
+            status += "  "  #for column alignment
+        return status
+    elif pr_state == "CLOSED":
+        return ColorFG.RED + pr_state + ColorFG.DEFAULT
+    elif pr_state == "MERGED":
+        return ColorFG.GREEN + pr_state + ColorFG.DEFAULT
 
 def parse_branches():
     main_branch_name = subprocess.check_output(["git", "symbolic-ref", "--short", "refs/remotes/origin/HEAD"])
     main_branch_name = main_branch_name.decode("ASCII").strip("\n").split("/")[1]
     git_br_output = subprocess.check_output(["git", "branch", "-vv"])
     git_br_output_lines = git_br_output.splitlines()
+    github_pr_info = github_pr_query()
 
     tree = defaultdict(list)
     branches = {}
     for line in git_br_output_lines:
-        branch = GitBranch(line)
+        branch = GitBranch(line, github_pr_info)
         branches[branch.name] = branch
 
         # Build tree contents of the form {"parent": "child"}.
@@ -164,7 +203,7 @@ def calculate_branch_column_width(print_outs, branches):
 def print_table(print_outs, branches):
     # Print header
     first_column_width = calculate_branch_column_width(print_outs, branches)
-    header = "Branch".ljust(first_column_width) + "  Deltas  Commit  Description"
+    header = "Branch".ljust(first_column_width) + "  Deltas  Commit   Status  PR Link"
     print(Format.BOLD + header + Format.RESET)
     print("=" * (len(header) + 10))
 
@@ -210,7 +249,11 @@ def print_table(print_outs, branches):
                 + max(8 - deltas_column_length, 1) * " " # Defalut width of 8 (+XX:-XX ), but enforce 1 space
             + branch.commit
             + "  "
-            + branch.commit_description
+            + branch.pr_state
+            + "  "
+            + branch.pr_url
+            # TODO: Description is too long to fit, maybe set up a flag to show it.
+            # + branch.commit_description
         )
 
         # Print row
