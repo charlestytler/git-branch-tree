@@ -70,7 +70,8 @@ class GitBranch:
         self.pr_number = ""
         self.pr_url = ""
         self.pr_state = ""
-        self._parse_pr_info(github_pr_info)
+        if self.name in github_pr_info:
+            self._parse_pr_info(github_pr_info[self.name])
 
     def _parse_upstream_info(self, upstream_info):
         # Parse upstream_info of form "<upstream_branch>: (ahead #), (behind #)"
@@ -109,12 +110,10 @@ class GitBranch:
         except Exception as inst:
             print("An error occurred with running or parsing git show", inst)
 
-    def _parse_pr_info(self, github_pr_info):
-        if self.name not in github_pr_info:
-            return
-        self.pr_number = github_pr_info[self.name]["number"]
-        self.pr_url = github_pr_info[self.name]["url"]
-        self.pr_state = colorize_github_pr_status(github_pr_info[self.name]["state"], github_pr_info[self.name]["reviewDecision"])
+    def _parse_pr_info(self, github_branch_pr_info):
+        self.pr_number = github_branch_pr_info["number"]
+        self.pr_url = github_branch_pr_info["url"]
+        self.pr_state = colorize_github_pr_status(github_branch_pr_info["state"], github_branch_pr_info["reviewDecision"])
 
 def github_pr_query():
     FIELDS = ["headRefName", "number", "url", "state", "reviewDecision"]
@@ -123,7 +122,7 @@ def github_pr_query():
         gh_pr_list = json.loads(gh_pr_list.decode("ASCII").strip())
     except Exception as inst:
         print("Unable to fetch github PR data", inst)
-        gh_pr_list = {}
+        return {}
     pr_info = {}
     for pr in gh_pr_list:
         pr_info[pr[FIELDS[0]]] = {field: pr[field] for field in FIELDS[1:]}
