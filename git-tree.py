@@ -27,7 +27,7 @@ def assume_main_is_upstream(upstream_branch):
 
 
 class GitBranch:
-    def __init__(self, branch_printout):
+    def __init__(self, branch_printout, main_branch_name):
         branch_details = branch_printout.decode("ASCII")
         # Parse details of form "<*> <name> <commit> ([<upstream_info>]) <commit_details>"
         # Active branch in current worktree starts with "* ".
@@ -56,11 +56,13 @@ class GitBranch:
                 ")", maxsplit=1
             )
             self.other_worktree_basedir = os.path.basename(other_worktree_basedir)
-        if self.upstream_branch is not None:
+        if not assume_main_is_upstream(self.upstream_branch):
             upstream_info, branch_details = branch_details.lstrip(" [").split(
                 "]", maxsplit=1
             )
             self._parse_upstream_info(upstream_info)
+        else:
+            self._query_ahead_behind(main_branch_name)
         self.commit_description = branch_details.lstrip()
 
         self.has_remote = False
@@ -77,6 +79,16 @@ class GitBranch:
                     self.ahead = int(delta.strip("ahead "))
                 elif delta.strip().startswith("behind"):
                     self.behind = int(delta.strip("behind "))
+
+    def _query_ahead_behind(self, upstream_branch_name):
+        try:
+            behind_ahead = subprocess.check_output(
+                ["git", "rev-list", "--left-right", "--count", upstream_branch_name + "..." + self.name]
+            ).decode("ASCII").strip("\n")
+            self.behind, self.ahead = [int(x) for x in behind_ahead.split()]
+        except subprocess.CalledProcessError:
+            print("Unable to determine ahead/behind for branch", self.name)
+            return
 
     def _parse_remote_info(self):
         grep_for_remote = subprocess.check_output(
@@ -106,15 +118,16 @@ class GitBranch:
 
 
 def parse_branches():
-    main_branch_name = subprocess.check_output(["git", "symbolic-ref", "--short", "refs/remotes/origin/HEAD"])
-    main_branch_name = main_branch_name.decode("ASCII").strip("\n").split("/")[1]
+    main_branch_name = subprocess.check_output(
+            ["git", "symbolic-ref", "--short", "refs/remotes/origin/HEAD"]
+        ).decode("ASCII").strip("\n").split("/")[1]
     git_br_output = subprocess.check_output(["git", "branch", "-vv"])
     git_br_output_lines = git_br_output.splitlines()
 
     tree = defaultdict(list)
     branches = {}
     for line in git_br_output_lines:
-        branch = GitBranch(line)
+        branch = GitBranch(line, main_branch_name)
         branches[branch.name] = branch
 
         # Build tree contents of the form {"parent": "child"}.
@@ -174,7 +187,7 @@ def print_table(print_outs, branches):
         # Branch name column
         column_width_count = len(tree_prefix) + len(branch_name)
         if assume_main_is_upstream(branch.upstream_branch):
-            tree_prefix = ColorFG.YELLOW + tree_prefix + ColorFG.DEFAULT
+            tree_prefix = ColorFG.YELLOW + tree_prefix.replace("─", "-") + ColorFG.DEFAULT
         first_column = tree_prefix + branch_name
         if branch.active_on_other_worktree:
             first_column += " (" + branch.other_worktree_basedir + ")"
@@ -194,10 +207,6 @@ def print_table(print_outs, branches):
             behind = "-" + branch_behind_str
         deltas = ahead + ":" + behind
         deltas_column_length = len(branch_ahead_str) + len(branch_behind_str) + 3
-
-        if assume_main_is_upstream(branch.upstream_branch):
-            # Clear the deltas since it's not correct relative to main.
-            deltas = " " * deltas_column_length
 
         # Remote column
         remote_text = "\uE0A0" if branch.has_remote else " "
