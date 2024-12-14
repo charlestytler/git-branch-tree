@@ -10,38 +10,28 @@ from collections import defaultdict
 from sys import exit
 
 
-class Color:
-    FG_DEFAULT = "\x1b[39m"
-
-    def __init__(self, value):
-        self.value = value
-
-    def color(self, string):
-        return self.value + string + Color.FG_DEFAULT
-
-
-class ColorsFG:
-    RED = Color("\x1b[31m")
-    GREEN = Color("\x1b[32m")
-    YELLOW = Color("\x1b[33m")
-    DEFAULT = Color(Color.FG_DEFAULT)
+FG_DEFAULT = "\x1b[39m"
+FMT_RESET = "\x1b[0m"
 
 
 class Format:
-    RESET = "\x1b[0m"
 
-    def __init__(self, value):
+    def __init__(self, value, reset):
         self.value = value
+        self.reset = reset
 
     def format(self, string):
-        return self.value + string + Format.RESET
+        return self.value + string + self.reset
 
 
 class Formats:
-    BOLD = Format("\x1b[1m")
-    ITALIC = Format("\x1b[3m")
-    INVERSE = Format("\x1b[7m")
-    RESET = Format("\x1b[0m")
+    RED = Format("\x1b[31m", FG_DEFAULT)
+    GREEN = Format("\x1b[32m", FG_DEFAULT)
+    YELLOW = Format("\x1b[33m", FG_DEFAULT)
+
+    BOLD = Format("\x1b[1m", FMT_RESET)
+    ITALIC = Format("\x1b[3m", FMT_RESET)
+    INVERSE = Format("\x1b[7m", FMT_RESET)
 
 
 def assume_main_is_upstream(upstream_branch):
@@ -158,18 +148,18 @@ def github_pr_query():
 
 def colorize_github_pr_status(pr_state, pr_review_decision):
     STATE_TO_COLOR = {
-        "OPEN": ColorsFG.YELLOW,
-        "CLOSED": ColorsFG.RED,
-        "MERGED": ColorsFG.GREEN,
+        "OPEN": Formats.YELLOW,
+        "CLOSED": Formats.RED,
+        "MERGED": Formats.GREEN,
     }
-
-    status = STATE_TO_COLOR[pr_state].color(pr_state)
+    formatter = STATE_TO_COLOR[pr_state]
+    status = formatter.format(pr_state)
 
     if pr_state == "OPEN":
         if pr_review_decision == "APPROVED":
-            status += ColorsFG.GREEN.color(" ")
+            status += Formats.GREEN.format(" ")
         elif pr_review_decision == "CHANGES_REQUESTED":
-            status += ColorsFG.RED.color(" ")
+            status += Formats.RED.format(" ")
         else:
             status += "  "  # for column alignment
 
@@ -254,11 +244,11 @@ def print_table(print_outs, branches, highlight_branch=""):
         branch_ahead_str = str(branch.ahead)
         branch_behind_str = str(branch.behind)
         if branch.ahead > 0:
-            ahead = ColorsFG.GREEN.color("+" + branch_ahead_str)
+            ahead = Formats.GREEN.format("+" + branch_ahead_str)
         else:
             ahead = "+" + str(branch.ahead)
         if branch.behind > 0:
-            behind = ColorsFG.RED.color("-" + branch_behind_str)
+            behind = Formats.RED.format("-" + branch_behind_str)
         else:
             behind = "-" + branch_behind_str
         deltas = ahead + ":" + behind
@@ -271,7 +261,7 @@ def print_table(print_outs, branches, highlight_branch=""):
         # Remote column
         remote_text = "\uE0A0" if branch.has_remote else " "
         if branch.has_remote and branch.ahead_of_remote:
-            remote_text = ColorsFG.YELLOW.color(remote_text)
+            remote_text = Formats.YELLOW.format(remote_text)
 
         # Note: `ljust()` does not ignore escape characters (including for setting colors).
         # Therefore, `remote_text` cannot be combined into `first_column` or it would mess up
@@ -301,7 +291,7 @@ def print_table(print_outs, branches, highlight_branch=""):
         if branch.name == highlight_branch:
             modifiers.append(Formats.INVERSE)
 
-        # Apply each modifier to the result of the previous modifier.
+        # Iteratively apply each modifier to the formatted text so far.
         formatted_row_text = row_text
         for modifier in modifiers:
             formatted_row_text = modifier.format(formatted_row_text)
