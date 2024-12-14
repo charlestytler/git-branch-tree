@@ -10,17 +10,38 @@ from collections import defaultdict
 from sys import exit
 
 
-class ColorFG:
-    RED = "\x1b[31m"
-    GREEN = "\x1b[32m"
-    YELLOW = "\x1b[33m"
-    DEFAULT = "\x1b[39m"
+class Color:
+    FG_DEFAULT = "\x1b[39m"
+
+    def __init__(self, value):
+        self.value = value
+
+    def color(self, string):
+        return self.value + string + Color.FG_DEFAULT
+
+
+class ColorsFG:
+    RED = Color("\x1b[31m")
+    GREEN = Color("\x1b[32m")
+    YELLOW = Color("\x1b[33m")
+    DEFAULT = Color(Color.FG_DEFAULT)
+
 
 class Format:
-    BOLD = "\x1b[1m"
-    ITALIC = "\x1b[3m"
-    INVERSE = "\x1b[7m"
     RESET = "\x1b[0m"
+
+    def __init__(self, value):
+        self.value = value
+
+    def format(self, string):
+        return self.value + string + Format.RESET
+
+
+class Formats:
+    BOLD = Format("\x1b[1m")
+    ITALIC = Format("\x1b[3m")
+    INVERSE = Format("\x1b[7m")
+    RESET = Format("\x1b[0m")
 
 
 def assume_main_is_upstream(upstream_branch):
@@ -114,12 +135,17 @@ class GitBranch:
     def _parse_pr_info(self, github_branch_pr_info):
         self.pr_number = github_branch_pr_info["number"]
         self.pr_url = github_branch_pr_info["url"]
-        self.pr_state = colorize_github_pr_status(github_branch_pr_info["state"], github_branch_pr_info["reviewDecision"])
+        self.pr_state = colorize_github_pr_status(
+            github_branch_pr_info["state"], github_branch_pr_info["reviewDecision"]
+        )
+
 
 def github_pr_query():
     FIELDS = ["headRefName", "number", "url", "state", "reviewDecision"]
     try:
-        gh_pr_list = subprocess.check_output(["gh", "pr", "list", "--state", "all", "--json", ",".join(FIELDS)])
+        gh_pr_list = subprocess.check_output(
+            ["gh", "pr", "list", "--state", "all", "--json", ",".join(FIELDS)]
+        )
         gh_pr_list = json.loads(gh_pr_list.decode("ASCII").strip())
     except Exception as inst:
         print("Unable to fetch github PR data", inst)
@@ -129,23 +155,31 @@ def github_pr_query():
         pr_info[pr[FIELDS[0]]] = {field: pr[field] for field in FIELDS[1:]}
     return pr_info
 
+
 def colorize_github_pr_status(pr_state, pr_review_decision):
+    STATE_TO_COLOR = {
+        "OPEN": ColorsFG.YELLOW,
+        "CLOSED": ColorsFG.RED,
+        "MERGED": ColorsFG.GREEN,
+    }
+
+    status = STATE_TO_COLOR[pr_state].color(pr_state)
+
     if pr_state == "OPEN":
-        status = ColorFG.YELLOW + pr_state + ColorFG.DEFAULT
         if pr_review_decision == "APPROVED":
-            status += ColorFG.GREEN + " " + ColorFG.DEFAULT
+            status += ColorsFG.GREEN.color(" ")
         elif pr_review_decision == "CHANGES_REQUESTED":
-            status += ColorFG.RED + " " + ColorFG.DEFAULT
+            status += ColorsFG.RED.color(" ")
         else:
-            status += "  "  #for column alignment
-        return status
-    elif pr_state == "CLOSED":
-        return ColorFG.RED + pr_state + ColorFG.DEFAULT
-    elif pr_state == "MERGED":
-        return ColorFG.GREEN + pr_state + ColorFG.DEFAULT
+            status += "  "  # for column alignment
+
+    return status
+
 
 def parse_branches():
-    main_branch_name = subprocess.check_output(["git", "symbolic-ref", "--short", "refs/remotes/origin/HEAD"])
+    main_branch_name = subprocess.check_output(
+        ["git", "symbolic-ref", "--short", "refs/remotes/origin/HEAD"]
+    )
     main_branch_name = main_branch_name.decode("ASCII").strip("\n").split("/")[1]
     git_br_output = subprocess.check_output(["git", "branch", "-vv"])
     git_br_output_lines = git_br_output.splitlines()
@@ -205,7 +239,7 @@ def print_table(print_outs, branches, highlight_branch=""):
     # Print header
     first_column_width = calculate_branch_column_width(print_outs, branches)
     header = "Branch".ljust(first_column_width) + "  Deltas  Commit   Status  PR Link"
-    print(Format.BOLD + header + Format.RESET)
+    print(Formats.BOLD.format(header))
     print("=" * (len(header) + 10))
 
     for tree_prefix, branch_name in print_outs:
@@ -220,11 +254,11 @@ def print_table(print_outs, branches, highlight_branch=""):
         branch_ahead_str = str(branch.ahead)
         branch_behind_str = str(branch.behind)
         if branch.ahead > 0:
-            ahead = ColorFG.GREEN + "+" + branch_ahead_str + ColorFG.DEFAULT
+            ahead = ColorsFG.GREEN.color("+" + branch_ahead_str)
         else:
             ahead = "+" + str(branch.ahead)
         if branch.behind > 0:
-            behind = ColorFG.RED + "-" + branch_behind_str + ColorFG.DEFAULT
+            behind = ColorsFG.RED.color("-" + branch_behind_str)
         else:
             behind = "-" + branch_behind_str
         deltas = ahead + ":" + behind
@@ -237,7 +271,7 @@ def print_table(print_outs, branches, highlight_branch=""):
         # Remote column
         remote_text = "\uE0A0" if branch.has_remote else " "
         if branch.has_remote and branch.ahead_of_remote:
-            remote_text = ColorFG.YELLOW + remote_text + ColorFG.DEFAULT
+            remote_text = ColorsFG.YELLOW.color(remote_text)
 
         # Note: `ljust()` does not ignore escape characters (including for setting colors).
         # Therefore, `remote_text` cannot be combined into `first_column` or it would mess up
@@ -247,7 +281,8 @@ def print_table(print_outs, branches, highlight_branch=""):
             + " "
             + first_column.ljust(first_column_width)
             + deltas
-                + max(8 - deltas_column_length, 1) * " " # Defalut width of 8 (+XX:-XX ), but enforce 1 space
+            + max(8 - deltas_column_length, 1)
+            * " "  # Defalut width of 8 (+XX:-XX ), but enforce 1 space
             + branch.commit
             + "  "
             + branch.pr_state
@@ -258,19 +293,19 @@ def print_table(print_outs, branches, highlight_branch=""):
         )
 
         # Add any appropriate styling modifiers
-        modifiers_prepend = ""
-        modifiers_append = ""
+        modifiers = []
         if branch.active_branch:
-            modifiers_prepend += Format.BOLD
-            modifiers_append += Format.RESET
+            modifiers.append(Formats.BOLD)
         if branch.active_on_other_worktree:
-            modifiers_prepend += Format.ITALIC
-            modifiers_append += Format.RESET
+            modifiers.append(Formats.ITALIC)
         if branch.name == highlight_branch:
-            modifiers_prepend += Format.INVERSE
-            modifiers_append += Format.RESET
+            modifiers.append(Formats.INVERSE)
 
-        print(modifiers_prepend + row_text + modifiers_append)
+        # Apply each modifier to the result of the previous modifier.
+        formatted_row_text = row_text
+        for modifier in modifiers:
+            formatted_row_text = modifier.format(formatted_row_text)
+        print(formatted_row_text)
 
 
 def main():
@@ -279,8 +314,10 @@ def main():
     except:
         exit(1)
 
-    parser = argparse.ArgumentParser(description="Print git branches showing upstream branch linkages.")
-    parser.add_argument('--highlight', help = "Highlight provided branch name")
+    parser = argparse.ArgumentParser(
+        description="Print git branches showing upstream branch linkages."
+    )
+    parser.add_argument("--highlight", help="Highlight provided branch name")
     args = parser.parse_args()
 
     branches, tree = parse_branches()
