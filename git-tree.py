@@ -212,7 +212,7 @@ def calculate_branch_column_width(print_outs, branches):
     return max(branch_column_widths) + 2
 
 
-def print_table(print_outs, branches, consise=False, highlight_branch=""):
+def print_table(print_outs, branches, concise=False, highlight_branch=""):
     """
     Take the branch-structure print_outs,
     Derive additional column information according to the branches[],
