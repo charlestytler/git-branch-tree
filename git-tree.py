@@ -61,13 +61,18 @@ class GitBranch:
                 ")", maxsplit=1
             )
             self.other_worktree_basedir = os.path.basename(other_worktree_basedir)
-        if not assume_main_is_upstream(self.upstream_branch):
+
+        if self.name == main_branch_name:
+            self.ahead = None
+            self.behind = None
+        elif not assume_main_is_upstream(self.upstream_branch):
             upstream_info, branch_details = branch_details.lstrip(" [").split(
                 "]", maxsplit=1
             )
             self._parse_upstream_info(upstream_info)
         else:
             self._query_ahead_behind(main_branch_name)
+
         self.commit_description = branch_details.lstrip()
 
         self.has_remote = False
@@ -93,17 +98,11 @@ class GitBranch:
     def _query_ahead_behind(self, upstream_branch_name):
         try:
             behind_ahead = (
+                # fmt: off
                 subprocess.check_output(
-                    [
-                        "git",
-                        "rev-list",
-                        "--left-right",
-                        "--count",
-                        upstream_branch_name + "..." + self.name,
-                    ]
-                )
-                .decode("ASCII")
-                .strip("\n")
+                    [ "git", "rev-list", "--left-right", "--count", upstream_branch_name + "..." + self.name, ])
+                # fmt: on
+                .decode("ASCII").strip("\n")
             )
             self.behind, self.ahead = [int(x) for x in behind_ahead.split()]
         except subprocess.CalledProcessError:
@@ -111,20 +110,21 @@ class GitBranch:
             return
 
     def _parse_remote_info(self):
-        grep_for_remote = subprocess.check_output(
-            ["git", "branch", "-r", "-l", "*" + self.name]
-        ).decode("ASCII")
-        self.has_remote = len(grep_for_remote) != 0
+        maybe_remote_branch = (
+            # fmt: off
+            subprocess.check_output(
+                [ "git", "branch", "-r", "-l", "*" + self.name, "--format", "%(refname:short)", ]
+            ).decode("ASCII").strip("\n")
+            # fmt: on
+        )
+        self.has_remote = len(maybe_remote_branch) != 0
         if not self.has_remote or self.name in ("main", "master"):
             return
         try:
+            # fmt: off
             compare_local_remote = [
-                "git",
-                "show",
-                self.name + "@{u}.." + self.name,
-                "--oneline",
-                "--decorate=short",
-            ]
+                "git", "show", maybe_remote_branch, self.name, "--oneline", "--decorate=short", ]
+            # fmt: on
             res = subprocess.check_output(compare_local_remote).decode()
             if len(res) == 0:
                 # No commits different between upstream and current branch.
@@ -282,18 +282,22 @@ def print_table(print_outs, branches, concise=False, highlight_branch=""):
         first_column += " " * (first_column_width - column_width_count)
 
         # Deltas column
-        branch_ahead_str = str(branch.ahead)
-        branch_behind_str = str(branch.behind)
-        if branch.ahead > 0:
-            ahead = ColorFG.GREEN + "+" + branch_ahead_str + ColorFG.DEFAULT
+        if branch.ahead is not None and branch.behind is not None:
+            branch_ahead_str = str(branch.ahead)
+            branch_behind_str = str(branch.behind)
+            if branch.ahead > 0:
+                ahead = ColorFG.GREEN + "+" + branch_ahead_str + ColorFG.DEFAULT
+            else:
+                ahead = "+" + str(branch.ahead)
+            if branch.behind > 0:
+                behind = ColorFG.RED + "-" + branch_behind_str + ColorFG.DEFAULT
+            else:
+                behind = "-" + branch_behind_str
+            deltas = ahead + ":" + behind
+            deltas_column_length = len(branch_ahead_str) + len(branch_behind_str) + 3
         else:
-            ahead = "+" + str(branch.ahead)
-        if branch.behind > 0:
-            behind = ColorFG.RED + "-" + branch_behind_str + ColorFG.DEFAULT
-        else:
-            behind = "-" + branch_behind_str
-        deltas = ahead + ":" + behind
-        deltas_column_length = len(branch_ahead_str) + len(branch_behind_str) + 3
+            deltas = ""
+            deltas_column_length = 0
 
         # Remote column
         remote_text = "\uE0A0" if branch.has_remote else " "
