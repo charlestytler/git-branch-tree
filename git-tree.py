@@ -136,7 +136,7 @@ class GitBranch:
             # fmt: on
             res = subprocess.check_output(compare_local_remote).decode()
             if len(res) == 0:
-                # No commits different between upstream and current branch.
+                # No differences between upstream and current branch.
                 self.in_sync_with_remote = True
                 return
             self.in_sync_with_remote = False
@@ -289,7 +289,10 @@ def print_table(print_outs, branches, concise=False, highlight_branch=""):
         first_column += " " * (first_column_width - column_width_count)
 
         # Deltas column
-        if branch.ahead is not None and branch.behind is not None:
+        if branch.ahead is None or branch.behind is None:
+            deltas = ""
+            deltas_column_length = 0
+        else:
             branch_ahead_str = str(branch.ahead)
             branch_behind_str = str(branch.behind)
             if branch.ahead > 0:
@@ -302,9 +305,6 @@ def print_table(print_outs, branches, concise=False, highlight_branch=""):
                 behind = "-" + branch_behind_str
             deltas = ahead + ":" + behind
             deltas_column_length = len(branch_ahead_str) + len(branch_behind_str) + 3
-        else:
-            deltas = ""
-            deltas_column_length = 0
 
         # Remote column
         remote_text = "\uE0A0" if branch.has_remote else " "
