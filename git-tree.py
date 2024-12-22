@@ -14,12 +14,14 @@ class ColorFG:
     RED = "\x1b[31m"
     GREEN = "\x1b[32m"
     YELLOW = "\x1b[33m"
+    BLUE = "\x1b[34m"
     DEFAULT = "\x1b[39m"
 
 
 class Format:
     BOLD = "\x1b[1m"
     ITALIC = "\x1b[3m"
+    UNDERLINE = "\x1b[4m"
     INVERSE = "\x1b[7m"
     RESET = "\x1b[0m"
 
@@ -69,8 +71,8 @@ class GitBranch:
         self.has_remote = False
         self.ahead_of_remote = False
         self._parse_remote_info()
-        self.pr_number = ""
         self.pr_url = ""
+        self.pr_hyperlink = ""
         self.pr_state = ""
         if self.name in github_pr_info:
             self._parse_pr_info(github_pr_info[self.name])
@@ -113,8 +115,14 @@ class GitBranch:
             print("An error occurred with running or parsing git show", inst)
 
     def _parse_pr_info(self, github_branch_pr_info):
-        self.pr_number = github_branch_pr_info["number"]
         self.pr_url = github_branch_pr_info["url"]
+        self.pr_hyperlink = (
+            ColorFG.BLUE
+            + Format.UNDERLINE
+            + hyperlink("#" + str(github_branch_pr_info["number"]), self.pr_url)
+            + ColorFG.DEFAULT
+            + Format.RESET
+        )
         self.pr_state = colorize_github_pr_status(
             github_branch_pr_info["state"], github_branch_pr_info["reviewDecision"]
         )
@@ -212,6 +220,10 @@ def calculate_branch_column_width(print_outs, branches):
     return max(branch_column_widths) + 2
 
 
+def hyperlink(text, url):
+    return f"\033]8;;{url}\033\\{text}\033]8;;\033\\"
+
+
 def print_table(print_outs, branches, concise=False, highlight_branch=""):
     """
     Take the branch-structure print_outs,
@@ -224,9 +236,9 @@ def print_table(print_outs, branches, concise=False, highlight_branch=""):
     first_column_width = calculate_branch_column_width(print_outs, branches)
     header = "Branch".ljust(first_column_width) + "  Deltas  Commit"
     if not concise:
-        header += "   Status  PR Link"
+        header += "   Status  PR "
     print(Format.BOLD + header + Format.RESET)
-    print("=" * (len(header) + 10))
+    print("=" * (len(header) + 2))
 
     for tree_prefix, branch_name in print_outs:
         branch = branches[branch_name]
@@ -276,7 +288,7 @@ def print_table(print_outs, branches, concise=False, highlight_branch=""):
                 "  "
                 + branch.pr_state
                 + "  "
-                + branch.pr_url
+                + branch.pr_hyperlink
                 # TODO: Description is too long to fit, maybe set up a flag to show it.
                 # + branch.commit_description
             )
