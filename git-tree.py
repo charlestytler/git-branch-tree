@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import argparse
 import os
 import subprocess
 import json
@@ -21,6 +22,7 @@ class Format:
     BOLD = "\x1b[1m"
     ITALIC = "\x1b[3m"
     UNDERLINE = "\x1b[4m"
+    INVERSE = "\x1b[7m"
     RESET = "\x1b[0m"
 
 
@@ -114,15 +116,24 @@ class GitBranch:
 
     def _parse_pr_info(self, github_branch_pr_info):
         self.pr_url = github_branch_pr_info["url"]
-        self.pr_hyperlink = (ColorFG.BLUE + Format.UNDERLINE
-            + hyperlink("#" + str(github_branch_pr_info["number"]), self.pr_url) 
-            + ColorFG.DEFAULT + Format.RESET)
-        self.pr_state = colorize_github_pr_status(github_branch_pr_info["state"], github_branch_pr_info["reviewDecision"])
+        self.pr_hyperlink = (
+            ColorFG.BLUE
+            + Format.UNDERLINE
+            + hyperlink("#" + str(github_branch_pr_info["number"]), self.pr_url)
+            + ColorFG.DEFAULT
+            + Format.RESET
+        )
+        self.pr_state = colorize_github_pr_status(
+            github_branch_pr_info["state"], github_branch_pr_info["reviewDecision"]
+        )
+
 
 def github_pr_query():
     FIELDS = ["headRefName", "number", "url", "state", "reviewDecision"]
     try:
-        gh_pr_list = subprocess.check_output(["gh", "pr", "list", "--state", "all", "--json", ",".join(FIELDS)])
+        gh_pr_list = subprocess.check_output(
+            ["gh", "pr", "list", "--state", "all", "--json", ",".join(FIELDS)]
+        )
         gh_pr_list = json.loads(gh_pr_list.decode("ASCII").strip())
     except Exception as inst:
         print("Unable to fetch github PR data", inst)
@@ -132,6 +143,7 @@ def github_pr_query():
         pr_info[pr[FIELDS[0]]] = {field: pr[field] for field in FIELDS[1:]}
     return pr_info
 
+
 def colorize_github_pr_status(pr_state, pr_review_decision):
     if pr_state == "OPEN":
         status = ColorFG.YELLOW + pr_state + ColorFG.DEFAULT
@@ -140,19 +152,22 @@ def colorize_github_pr_status(pr_state, pr_review_decision):
         elif pr_review_decision == "CHANGES_REQUESTED":
             status += ColorFG.RED + " " + ColorFG.DEFAULT
         else:
-            status += "  "  #for column alignment
+            status += "  "  # for column alignment
         return status
     elif pr_state == "CLOSED":
         return ColorFG.RED + pr_state + ColorFG.DEFAULT
     elif pr_state == "MERGED":
         return ColorFG.GREEN + pr_state + ColorFG.DEFAULT
 
-def parse_branches():
-    main_branch_name = subprocess.check_output(["git", "symbolic-ref", "--short", "refs/remotes/origin/HEAD"])
+
+def parse_branches(concise):
+    main_branch_name = subprocess.check_output(
+        ["git", "symbolic-ref", "--short", "refs/remotes/origin/HEAD"]
+    )
     main_branch_name = main_branch_name.decode("ASCII").strip("\n").split("/")[1]
     git_br_output = subprocess.check_output(["git", "branch", "-vv"])
     git_br_output_lines = git_br_output.splitlines()
-    github_pr_info = github_pr_query()
+    github_pr_info = github_pr_query() if not concise else {}
 
     tree = defaultdict(list)
     branches = {}
@@ -173,6 +188,7 @@ def parse_branches():
 
 
 def collect_depth_first_print_order(tree, node, prefix, print_outs):
+    """Recursively walk the tree and collect the print outs."""
     for index, child in enumerate(tree[node]):
         if not prefix:
             append_curr_line = ""
@@ -203,13 +219,24 @@ def calculate_branch_column_width(print_outs, branches):
         branch_column_widths.append(branch_width)
     return max(branch_column_widths) + 2
 
+
 def hyperlink(text, url):
     return f"\033]8;;{url}\033\\{text}\033]8;;\033\\"
 
-def print_table(print_outs, branches):
+
+def print_table(print_outs, branches, concise=False, highlight_branch=""):
+    """
+    Take the branch-structure print_outs,
+    Derive additional column information according to the branches[],
+    Exlude some detailed information when concise is true,
+    Add highlighting for the specified highlight_branch,
+    Print the table
+    """
     # Print header
     first_column_width = calculate_branch_column_width(print_outs, branches)
-    header = "Branch".ljust(first_column_width) + "  Deltas  Commit   Status  PR"
+    header = "Branch".ljust(first_column_width) + "  Deltas  Commit"
+    if not concise:
+        header += "   Status  PR "
     print(Format.BOLD + header + Format.RESET)
     print("=" * (len(header) + 2))
 
@@ -252,23 +279,34 @@ def print_table(print_outs, branches):
             + " "
             + first_column.ljust(first_column_width)
             + deltas
-                + max(8 - deltas_column_length, 1) * " " # Defalut width of 8 (+XX:-XX ), but enforce 1 space
+            # Default width of 8 (+XX:-XX ), but enforce 1 space
+            + max(8 - deltas_column_length, 1) * " "
             + branch.commit
-            + "  "
-            + branch.pr_state
-            + "  "
-            + branch.pr_hyperlink
-            # TODO: Description is too long to fit, maybe set up a flag to show it.
-            # + branch.commit_description
         )
+        if not concise:
+            row_text += (
+                "  "
+                + branch.pr_state
+                + "  "
+                + branch.pr_hyperlink
+                # TODO: Description is too long to fit, maybe set up a flag to show it.
+                # + branch.commit_description
+            )
 
-        # Print row
+        # Add any appropriate styling modifiers
+        modifiers_prepend = ""
+        modifiers_append = ""
         if branch.active_branch:
-            print(Format.BOLD + row_text + Format.RESET)
-        elif branch.active_on_other_worktree:
-            print(Format.ITALIC + row_text + Format.RESET)
-        else:
-            print(row_text)
+            modifiers_prepend += Format.BOLD
+            modifiers_append += Format.RESET
+        if branch.active_on_other_worktree:
+            modifiers_prepend += Format.ITALIC
+            modifiers_append += Format.RESET
+        if branch.name == highlight_branch:
+            modifiers_prepend += Format.INVERSE
+            modifiers_append += Format.RESET
+
+        print(modifiers_prepend + row_text + modifiers_append)
 
 
 def main():
@@ -277,10 +315,21 @@ def main():
     except:
         exit(1)
 
-    branches, tree = parse_branches()
+    parser = argparse.ArgumentParser(
+        description="Print git branches showing upstream branch linkages."
+    )
+    parser.add_argument(
+        "--concise",
+        action="store_true",
+        help="Concise output that does not include PR information",
+    )
+    parser.add_argument("--highlight", help="Highlight provided branch name")
+    args = parser.parse_args()
+
+    branches, tree = parse_branches(args.concise)
     print_outs = []
     collect_depth_first_print_order(tree, "root", "", print_outs)
-    print_table(print_outs, branches)
+    print_table(print_outs, branches, args.concise, args.highlight)
 
 
 if __name__ == "__main__":
