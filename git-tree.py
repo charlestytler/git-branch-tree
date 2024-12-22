@@ -16,6 +16,7 @@ class ColorFG:
     YELLOW = "\x1b[33m"
     DEFAULT = "\x1b[39m"
 
+
 class Format:
     BOLD = "\x1b[1m"
     ITALIC = "\x1b[3m"
@@ -114,12 +115,17 @@ class GitBranch:
     def _parse_pr_info(self, github_branch_pr_info):
         self.pr_number = github_branch_pr_info["number"]
         self.pr_url = github_branch_pr_info["url"]
-        self.pr_state = colorize_github_pr_status(github_branch_pr_info["state"], github_branch_pr_info["reviewDecision"])
+        self.pr_state = colorize_github_pr_status(
+            github_branch_pr_info["state"], github_branch_pr_info["reviewDecision"]
+        )
+
 
 def github_pr_query():
     FIELDS = ["headRefName", "number", "url", "state", "reviewDecision"]
     try:
-        gh_pr_list = subprocess.check_output(["gh", "pr", "list", "--state", "all", "--json", ",".join(FIELDS)])
+        gh_pr_list = subprocess.check_output(
+            ["gh", "pr", "list", "--state", "all", "--json", ",".join(FIELDS)]
+        )
         gh_pr_list = json.loads(gh_pr_list.decode("ASCII").strip())
     except Exception as inst:
         print("Unable to fetch github PR data", inst)
@@ -129,6 +135,7 @@ def github_pr_query():
         pr_info[pr[FIELDS[0]]] = {field: pr[field] for field in FIELDS[1:]}
     return pr_info
 
+
 def colorize_github_pr_status(pr_state, pr_review_decision):
     if pr_state == "OPEN":
         status = ColorFG.YELLOW + pr_state + ColorFG.DEFAULT
@@ -137,15 +144,18 @@ def colorize_github_pr_status(pr_state, pr_review_decision):
         elif pr_review_decision == "CHANGES_REQUESTED":
             status += ColorFG.RED + " " + ColorFG.DEFAULT
         else:
-            status += "  "  #for column alignment
+            status += "  "  # for column alignment
         return status
     elif pr_state == "CLOSED":
         return ColorFG.RED + pr_state + ColorFG.DEFAULT
     elif pr_state == "MERGED":
         return ColorFG.GREEN + pr_state + ColorFG.DEFAULT
 
+
 def parse_branches():
-    main_branch_name = subprocess.check_output(["git", "symbolic-ref", "--short", "refs/remotes/origin/HEAD"])
+    main_branch_name = subprocess.check_output(
+        ["git", "symbolic-ref", "--short", "refs/remotes/origin/HEAD"]
+    )
     main_branch_name = main_branch_name.decode("ASCII").strip("\n").split("/")[1]
     git_br_output = subprocess.check_output(["git", "branch", "-vv"])
     git_br_output_lines = git_br_output.splitlines()
@@ -170,6 +180,7 @@ def parse_branches():
 
 
 def collect_depth_first_print_order(tree, node, prefix, print_outs):
+    """Recursively walk the tree and collect the print outs."""
     for index, child in enumerate(tree[node]):
         if not prefix:
             append_curr_line = ""
@@ -202,6 +213,12 @@ def calculate_branch_column_width(print_outs, branches):
 
 
 def print_table(print_outs, branches, highlight_branch=""):
+    """
+    Take the branch-structure print_outs,
+    Derive additional column information according to the branches[],
+    Add highlighting for the specified highlight_branch,
+    Print the table
+    """
     # Print header
     first_column_width = calculate_branch_column_width(print_outs, branches)
     header = "Branch".ljust(first_column_width) + "  Deltas  Commit   Status  PR Link"
@@ -247,7 +264,8 @@ def print_table(print_outs, branches, highlight_branch=""):
             + " "
             + first_column.ljust(first_column_width)
             + deltas
-                + max(8 - deltas_column_length, 1) * " " # Defalut width of 8 (+XX:-XX ), but enforce 1 space
+            + max(8 - deltas_column_length, 1)
+            * " "  # Defalut width of 8 (+XX:-XX ), but enforce 1 space
             + branch.commit
             + "  "
             + branch.pr_state
@@ -279,8 +297,10 @@ def main():
     except:
         exit(1)
 
-    parser = argparse.ArgumentParser(description="Print git branches showing upstream branch linkages.")
-    parser.add_argument('--highlight', help = "Highlight provided branch name")
+    parser = argparse.ArgumentParser(
+        description="Print git branches showing upstream branch linkages."
+    )
+    parser.add_argument("--highlight", help="Highlight provided branch name")
     args = parser.parse_args()
 
     branches, tree = parse_branches()
