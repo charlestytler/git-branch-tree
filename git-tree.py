@@ -32,7 +32,7 @@ def assume_main_is_upstream(upstream_branch):
 
 
 class GitBranch:
-    def __init__(self, branch_printout, github_pr_info, main_branch_name):
+    def __init__(self, branch_printout, main_branch_name, github_pr_info):
         branch_details = branch_printout.decode("ASCII")
         # Parse details of form "<*> <name> <commit> ([<upstream_info>]) <commit_details>"
         # Active branch in current worktree starts with "* ".
