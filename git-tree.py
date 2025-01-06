@@ -54,20 +54,34 @@ class GitBranch:
             )
         except subprocess.CalledProcessError:
             self.upstream_branch = None
-        self.ahead = 0
-        self.behind = 0
+
         if self.active_on_other_worktree:
             other_worktree_basedir, branch_details = branch_details.lstrip(" (").split(
                 ")", maxsplit=1
             )
             self.other_worktree_basedir = os.path.basename(other_worktree_basedir)
-        if not assume_main_is_upstream(self.upstream_branch):
+
+        self.has_remote = False
+        self.in_sync_with_remote = False
+        self._parse_remote_info()
+
+        self.ahead = 0
+        self.behind = 0
+        if self.name == main_branch_name:
+            if self.in_sync_with_remote:
+                # Omit display of ahead/behind (default is 0 deltas)
+                self.ahead = None
+                self.behind = None
+            else:
+                self._query_ahead_behind("origin/" + main_branch_name)
+        elif not assume_main_is_upstream(self.upstream_branch):
             upstream_info, branch_details = branch_details.lstrip(" [").split(
                 "]", maxsplit=1
             )
             self._parse_upstream_info(upstream_info)
         else:
             self._query_ahead_behind(main_branch_name)
+
         self.commit_description = branch_details.lstrip()
 
         self.has_remote = False
@@ -93,17 +107,11 @@ class GitBranch:
     def _query_ahead_behind(self, upstream_branch_name):
         try:
             behind_ahead = (
+                # fmt: off
                 subprocess.check_output(
-                    [
-                        "git",
-                        "rev-list",
-                        "--left-right",
-                        "--count",
-                        upstream_branch_name + "..." + self.name,
-                    ]
-                )
-                .decode("ASCII")
-                .strip("\n")
+                    [ "git", "rev-list", "--left-right", "--count", upstream_branch_name + "..." + self.name, ])
+                # fmt: on
+                .decode("ASCII").strip("\n")
             )
             self.behind, self.ahead = [int(x) for x in behind_ahead.split()]
         except subprocess.CalledProcessError:
@@ -111,28 +119,27 @@ class GitBranch:
             return
 
     def _parse_remote_info(self):
-        grep_for_remote = subprocess.check_output(
-            ["git", "branch", "-r", "-l", "*" + self.name]
-        ).decode("ASCII")
-        self.has_remote = len(grep_for_remote) != 0
-        if not self.has_remote or self.name in ("main", "master"):
+        maybe_remote_branch = (
+            # fmt: off
+            subprocess.check_output(
+                [ "git", "branch", "-r", "-l", "origin/" + self.name, "--format", "%(refname:short)", ]
+            ).decode("ASCII").strip("\n")
+            # fmt: on
+        )
+        self.has_remote = len(maybe_remote_branch) != 0
+        if not self.has_remote:
             return
         try:
+            # fmt: off
             compare_local_remote = [
-                "git",
-                "show",
-                self.name + "@{u}.." + self.name,
-                "--oneline",
-                "--decorate=short",
-            ]
+                "git", "diff", maybe_remote_branch, self.name, "--shortstat" ]
+            # fmt: on
             res = subprocess.check_output(compare_local_remote).decode()
             if len(res) == 0:
-                # No commits different between upstream and current branch.
-                self.ahead_of_remote = False
+                # No differences between upstream and current branch.
+                self.in_sync_with_remote = True
                 return
-            latest_commit = res.split("\n")[0]
-            # If "origin/<branch>" is in the decorator for the lastest commit, then the remote branch is up to date.
-            self.ahead_of_remote = f"origin/{self.name}" not in latest_commit
+            self.in_sync_with_remote = False
         except Exception as inst:
             print("An error occurred with running or parsing git show", inst)
 
@@ -282,22 +289,26 @@ def print_table(print_outs, branches, concise=False, highlight_branch=""):
         first_column += " " * (first_column_width - column_width_count)
 
         # Deltas column
-        branch_ahead_str = str(branch.ahead)
-        branch_behind_str = str(branch.behind)
-        if branch.ahead > 0:
-            ahead = ColorFG.GREEN + "+" + branch_ahead_str + ColorFG.DEFAULT
+        if branch.ahead is None or branch.behind is None:
+            deltas = ""
+            deltas_column_length = 0
         else:
-            ahead = "+" + str(branch.ahead)
-        if branch.behind > 0:
-            behind = ColorFG.RED + "-" + branch_behind_str + ColorFG.DEFAULT
-        else:
-            behind = "-" + branch_behind_str
-        deltas = ahead + ":" + behind
-        deltas_column_length = len(branch_ahead_str) + len(branch_behind_str) + 3
+            branch_ahead_str = str(branch.ahead)
+            branch_behind_str = str(branch.behind)
+            if branch.ahead > 0:
+                ahead = ColorFG.GREEN + "+" + branch_ahead_str + ColorFG.DEFAULT
+            else:
+                ahead = "+" + str(branch.ahead)
+            if branch.behind > 0:
+                behind = ColorFG.RED + "-" + branch_behind_str + ColorFG.DEFAULT
+            else:
+                behind = "-" + branch_behind_str
+            deltas = ahead + ":" + behind
+            deltas_column_length = len(branch_ahead_str) + len(branch_behind_str) + 3
 
         # Remote column
         remote_text = "\uE0A0" if branch.has_remote else " "
-        if branch.has_remote and branch.ahead_of_remote:
+        if branch.has_remote and not branch.in_sync_with_remote:
             remote_text = ColorFG.YELLOW + remote_text + ColorFG.DEFAULT
 
         # Note: `ljust()` does not ignore escape characters (including for setting colors).
