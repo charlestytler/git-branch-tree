@@ -16,14 +16,6 @@ class ColorFG:
     DEFAULT = "\x1b[39m"
 
 
-class Format:
-    BOLD = "\x1b[1m"
-    ITALIC = "\x1b[3m"
-    UNDERLINE = "\x1b[4m"
-    INVERSE = "\x1b[7m"
-    RESET = "\x1b[0m"
-
-
 def git_local_branch_query():
     git_branch_list = subprocess.check_output(
         ["git", "branch", "--format", "%(refname:short)"]
