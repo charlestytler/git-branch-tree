@@ -4,11 +4,11 @@
 
 Executing git-tree.py from within a git repository will query all git branches and print them to the terminal in a hierarchical tree format, according to their upstream branch mapping, and displays Github PR status for each.
 
-This is particularly useful if you work with a lot of chained PRs. If a branch does not have a local branch listed as its upstream it will assume the main branch is upstream of it and show this relation with a dashed yellow line.
+This is particularly useful if you work with a lot of chained PRs. If a branch does not have a local branch listed as its upstream it will assume the main branch is upstream of it and show this relation with a dashed yellow line.  
 Use `git branch -u <parent_branch>` to link a branch to its parent.
 
 ## Dependencies
-This script relies on the github CLI tool (gh) to be installed and configured for authentication.
+This script relies on the github CLI tool (gh) to be installed and configured for authentication.  
 See https://cli.github.com/
 
 ## Installation
