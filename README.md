@@ -9,14 +9,16 @@ Use `git branch -u <parent_branch>` to link a branch to its parent.
 
 ## Dependencies
 This script relies on the github CLI tool (gh) to be installed and configured for authentication.  
-See https://cli.github.com/
+See https://cli.github.com/  
+  
+Also requires python3 installed and on your path.
 
 ## Installation
-Install the git-tree.py and (optionally) git-delete.py scripts (requires Python3 installed) and set it as a git alias to `git tree`:
+Install the git-tree.py script (requires Python3 installed) and set it as a git alias to `git tree`:
 ```
 curl -sL -o ~/.git-tree.py https://raw.githubusercontent.com/charlestytler/git-branch-tree/refs/heads/master/git-tree.py && chmod +x ~/.git-tree.py && git config --global alias.tree '!~/.git-tree.py'
 ```
-(Optional) Create alias `git del` to run `git-delete.py`:
+(Optional) Install `git-delete.py` and set it as a git alias to `git del`:
 ```
 curl -sL -o ~/.git-delete.py https://raw.githubusercontent.com/charlestytler/git-branch-tree/refs/heads/master/git-delete.py && chmod +x ~/.git-delete.py && git config --global alias.del '!~/.git-delete.py'
 ```
