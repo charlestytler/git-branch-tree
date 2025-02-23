@@ -4,18 +4,30 @@
 
 Executing git-tree.py from within a git repository will query all git branches and print them to the terminal in a hierarchical tree format, according to their upstream branch mapping, and displays Github PR status for each.
 
-This is particularly useful if you work with a lot of chained PRs. If a branch does not have a local branch listed as its upstream it will assume the main branch is upstream of it and show this relation with a dashed yellow line.
+This is particularly useful if you work with a lot of chained PRs. If a branch does not have a local branch listed as its upstream it will assume the main branch is upstream of it and show this relation with a dashed yellow line.  
+Use `git branch -u <parent_branch>` to link a branch to its parent.
+
+## Dependencies
+This script relies on the github CLI tool (gh) to be installed and configured for authentication.  
+See https://cli.github.com/  
+  
+Also requires python3 installed and on your path.
 
 ## Installation
 Install the git-tree.py script (requires Python3 installed) and set it as a git alias to `git tree`:
 ```
 curl -sL -o ~/.git-tree.py https://raw.githubusercontent.com/charlestytler/git-branch-tree/refs/heads/master/git-tree.py && chmod +x ~/.git-tree.py && git config --global alias.tree '!~/.git-tree.py'
 ```
+(Optional) Install `git-delete.py` and set it as a git alias to `git del`:
+```
+curl -sL -o ~/.git-delete.py https://raw.githubusercontent.com/charlestytler/git-branch-tree/refs/heads/master/git-delete.py && chmod +x ~/.git-delete.py && git config --global alias.del '!~/.git-delete.py'
+```
 or with git clone:
 ```
 git clone https://github.com/charlestytler/git-branch-tree.git /tmp/git-branch-tree &&\
 cp /tmp/git-branch-tree/git-tree.py ~/.git-tree.py &&\
 git config --global alias.tree '!~/.git-tree.py'
+git config --global alias.del '!~/.git-delete.py'
 ```
 
 ## Usage
@@ -39,4 +51,8 @@ Note that when creating branches you should be assigning their upstream branch, 
 ### Script branch output
 Executing `git-tree.py` will show the image at the top of the page.
 
+### Git branch deletion based on PR status
+Executing `git-delete.py` will delete all local branches with the PR status "MERGED" (with confirmation from user first).
+
+Deletion based on different statuses can be performed using the `-s/--status` flag
 
