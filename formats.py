@@ -18,7 +18,7 @@ class Format:
         formatters = Formats.EMPTY
         formatters += Formats.RED
         """
-        return Format(self.value + other.value, self.reset + other.reset)
+        return Format(self.value + other.value, other.reset + self.reset)
 
     def add(self, other):
         """
