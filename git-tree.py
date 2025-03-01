@@ -9,6 +9,7 @@ import json
 from collections import defaultdict
 from sys import exit
 
+from common import get_upstream
 
 class ColorFG:
     RED = "\x1b[31m"
@@ -43,17 +44,7 @@ class GitBranch:
             branch_details.lstrip("* ").lstrip("+ ").split(" ", maxsplit=1)
         )
         self.commit, branch_details = branch_details.lstrip().split(" ", maxsplit=1)
-        try:
-            self.upstream_branch = (
-                subprocess.check_output(
-                    ["git", "rev-parse", "--abbrev-ref", self.name + "@{u}"],
-                    stderr=subprocess.STDOUT,
-                )
-                .decode("ASCII")
-                .strip(" \n")
-            )
-        except subprocess.CalledProcessError:
-            self.upstream_branch = None
+        self.upstream_branch = get_upstream(self.name)
 
         if self.active_on_other_worktree:
             other_worktree_basedir, branch_details = branch_details.lstrip(" (").split(
