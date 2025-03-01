@@ -7,6 +7,8 @@ import json
 
 from sys import exit
 
+from common import get_upstream
+
 
 class ColorFG:
     RED = "\x1b[31m"
@@ -36,20 +38,6 @@ def github_pr_state_query():
     return {pr["headRefName"]: pr["state"] for pr in gh_pr_list}
 
 
-def get_upstream(branch):
-    try:
-        return (
-            subprocess.check_output(
-                ["git", "rev-parse", "--abbrev-ref", branch + "@{u}"],
-                stderr=subprocess.STDOUT,
-            )
-            .decode("ASCII")
-            .strip(" \n")
-        )
-    except subprocess.CalledProcessError:
-        return None
-
-
 def get_parents_of_open_branches(branches, pr_state):
     parents = set()
     for branch in branches:
@@ -59,7 +47,9 @@ def get_parents_of_open_branches(branches, pr_state):
 
 
 def filter_branches_by_pr_state(branches, pr_state, filter_state, skip_parents):
-    parents = get_parents_of_open_branches(branches, pr_state) if skip_parents else set()
+    parents = (
+        get_parents_of_open_branches(branches, pr_state) if skip_parents else set()
+    )
     return [
         branch
         for branch in branches
@@ -103,14 +93,16 @@ def main():
     parser.add_argument(
         "--skip-parents",
         action="store_true",
-        help="Skip branches that are parents of open branches (PR status is open, or no PRs)"
+        help="Skip parents of 'in-progress' children branches (open PR state or no associated PR)",
     )
     args = parser.parse_args()
 
     filter_state = args.state.upper()
     branches = git_local_branch_query()
     pr_state = github_pr_state_query()
-    branches = filter_branches_by_pr_state(branches, pr_state, filter_state, args.skip_parents)
+    branches = filter_branches_by_pr_state(
+        branches, pr_state, filter_state, args.skip_parents
+    )
     if len(branches) == 0:
         print(
             f"No branches with PR status {ColorFG.GREEN}{filter_state}{ColorFG.DEFAULT} to delete"
