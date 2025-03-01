@@ -280,7 +280,7 @@ def print_table(print_outs, branches, concise=False, highlight_branch=""):
         column_width_count = len(tree_prefix) + len(branch_name)
         if assume_main_is_upstream(branch.upstream_branch):
             tree_prefix = (
-                ColorFG.YELLOW + tree_prefix.replace("─", "-") + ColorFG.DEFAULT
+                ColorFG.YELLOW + tree_prefix.replace("─", "╶") + ColorFG.DEFAULT
             )
         first_column = tree_prefix + branch_name
         if branch.active_on_other_worktree:
