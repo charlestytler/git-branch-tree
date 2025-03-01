@@ -8,15 +8,7 @@ import json
 from sys import exit
 
 from common import get_upstream
-
-
-class ColorFG:
-    RED = "\x1b[31m"
-    GREEN = "\x1b[32m"
-    YELLOW = "\x1b[33m"
-    BLUE = "\x1b[34m"
-    DEFAULT = "\x1b[39m"
-
+from formats import Formats
 
 def git_local_branch_query():
     git_branch_list = subprocess.check_output(
@@ -62,7 +54,7 @@ def filter_branches_by_pr_state(branches, pr_state, filter_state, skip_parents):
 def git_delete_after_user_confirmation(branches, filter_state):
     space_separated_branches = " ".join(branches)
     newline_separated_branches = "\n  ".join(branches)
-    print(f"The following branches are {ColorFG.GREEN}{filter_state}{ColorFG.DEFAULT}:")
+    print(f"The following branches are {Formats.GREEN.fmt(filter_state)}:")
     print(f"  {newline_separated_branches}")
     print(f"Delete all? (y/n)")
     if input() == "y":
@@ -105,7 +97,8 @@ def main():
     )
     if len(branches) == 0:
         print(
-            f"No branches with PR status {ColorFG.GREEN}{filter_state}{ColorFG.DEFAULT} to delete"
+            f"No branches with PR status {Formats.GREEN.fmt(filter_state)} to delete"
+
         )
         exit(0)
     git_delete_after_user_confirmation(branches, filter_state)

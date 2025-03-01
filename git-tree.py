@@ -10,21 +10,7 @@ from collections import defaultdict
 from sys import exit
 
 from common import get_upstream
-
-class ColorFG:
-    RED = "\x1b[31m"
-    GREEN = "\x1b[32m"
-    YELLOW = "\x1b[33m"
-    BLUE = "\x1b[34m"
-    DEFAULT = "\x1b[39m"
-
-
-class Format:
-    BOLD = "\x1b[1m"
-    ITALIC = "\x1b[3m"
-    UNDERLINE = "\x1b[4m"
-    INVERSE = "\x1b[7m"
-    RESET = "\x1b[0m"
+from formats import Formats
 
 
 def assume_main_is_upstream(upstream_branch):
@@ -136,12 +122,8 @@ class GitBranch:
 
     def _parse_pr_info(self, github_branch_pr_info):
         self.pr_url = github_branch_pr_info["url"]
-        self.pr_hyperlink = (
-            ColorFG.BLUE
-            + Format.UNDERLINE
-            + hyperlink("#" + str(github_branch_pr_info["number"]), self.pr_url)
-            + ColorFG.DEFAULT
-            + Format.RESET
+        self.pr_hyperlink = Formats.BLUE.add(Formats.UNDERLINE).fmt(
+            hyperlink("#" + str(github_branch_pr_info["number"]), self.pr_url)
         )
         self.pr_state = colorize_github_pr_status(
             github_branch_pr_info["state"], github_branch_pr_info["reviewDecision"]
@@ -166,18 +148,18 @@ def github_pr_query():
 
 def colorize_github_pr_status(pr_state, pr_review_decision):
     if pr_state == "OPEN":
-        status = ColorFG.YELLOW + pr_state + ColorFG.DEFAULT
+        status = Formats.YELLOW.fmt(pr_state)
         if pr_review_decision == "APPROVED":
-            status += ColorFG.GREEN + " " + ColorFG.DEFAULT
+            status += Formats.GREEN.fmt(" ")
         elif pr_review_decision == "CHANGES_REQUESTED":
-            status += ColorFG.RED + " " + ColorFG.DEFAULT
+            status += Formats.RED.fmt(" ")
         else:
             status += "  "  # for column alignment
         return status
     elif pr_state == "CLOSED":
-        return ColorFG.RED + pr_state + ColorFG.DEFAULT
+        return Formats.RED.fmt(pr_state)
     elif pr_state == "MERGED":
-        return ColorFG.GREEN + pr_state + ColorFG.DEFAULT
+        return Formats.GREEN.fmt(pr_state)
 
 
 def parse_branches(concise):
@@ -261,7 +243,7 @@ def print_table(print_outs, branches, concise=False, highlight_branch=""):
     header = "Branch".ljust(first_column_width) + "  Deltas  Commit"
     if not concise:
         header += "   Status  PR "
-    print(Format.BOLD + header + Format.RESET)
+    print(Formats.BOLD.fmt(header))
     print("=" * (len(header) + 2))
 
     for tree_prefix, branch_name in print_outs:
@@ -270,9 +252,7 @@ def print_table(print_outs, branches, concise=False, highlight_branch=""):
         # Branch name column
         column_width_count = len(tree_prefix) + len(branch_name)
         if assume_main_is_upstream(branch.upstream_branch):
-            tree_prefix = (
-                ColorFG.YELLOW + tree_prefix.replace("─", "-") + ColorFG.DEFAULT
-            )
+            tree_prefix = Formats.YELLOW.fmt(tree_prefix.replace("─", "-"))
         first_column = tree_prefix + branch_name
         if branch.active_on_other_worktree:
             first_column += " (" + branch.other_worktree_basedir + ")"
@@ -287,11 +267,11 @@ def print_table(print_outs, branches, concise=False, highlight_branch=""):
             branch_ahead_str = str(branch.ahead)
             branch_behind_str = str(branch.behind)
             if branch.ahead > 0:
-                ahead = ColorFG.GREEN + "+" + branch_ahead_str + ColorFG.DEFAULT
+                ahead = Formats.GREEN.fmt("+" + branch_ahead_str)
             else:
                 ahead = "+" + str(branch.ahead)
             if branch.behind > 0:
-                behind = ColorFG.RED + "-" + branch_behind_str + ColorFG.DEFAULT
+                behind = Formats.RED.fmt("-" + branch_behind_str)
             else:
                 behind = "-" + branch_behind_str
             deltas = ahead + ":" + behind
@@ -300,7 +280,7 @@ def print_table(print_outs, branches, concise=False, highlight_branch=""):
         # Remote column
         remote_text = "\uE0A0" if branch.has_remote else " "
         if branch.has_remote and not branch.in_sync_with_remote:
-            remote_text = ColorFG.YELLOW + remote_text + ColorFG.DEFAULT
+            remote_text = Formats.YELLOW.fmt(remote_text)
 
         # Note: `ljust()` does not ignore escape characters (including for setting colors).
         # Therefore, `remote_text` cannot be combined into `first_column` or it would mess up
@@ -325,19 +305,14 @@ def print_table(print_outs, branches, concise=False, highlight_branch=""):
             )
 
         # Add any appropriate styling modifiers
-        modifiers_prepend = ""
-        modifiers_append = ""
+        modifiers = Formats.EMPTY
         if branch.active_branch:
-            modifiers_prepend += Format.BOLD
-            modifiers_append += Format.RESET
+            modifiers += Formats.BOLD
         if branch.active_on_other_worktree:
-            modifiers_prepend += Format.ITALIC
-            modifiers_append += Format.RESET
+            modifiers += Formats.ITALIC
         if branch.name == highlight_branch:
-            modifiers_prepend += Format.INVERSE
-            modifiers_append += Format.RESET
-
-        print(modifiers_prepend + row_text + modifiers_append)
+            modifiers += Formats.INVERSE
+        print(modifiers.fmt(row_text))
 
 
 def main():
