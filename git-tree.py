@@ -122,7 +122,7 @@ class GitBranch:
 
     def _parse_pr_info(self, github_branch_pr_info):
         self.pr_url = github_branch_pr_info["url"]
-        self.pr_hyperlink = Formats.BLUE.add(Formats.UNDERLINE).fmt(
+        self.pr_hyperlink = Formats.BLUE.add(Formats.UNDERLINE)(
             hyperlink("#" + str(github_branch_pr_info["number"]), self.pr_url)
         )
         self.pr_state = colorize_github_pr_status(
@@ -148,18 +148,18 @@ def github_pr_query():
 
 def colorize_github_pr_status(pr_state, pr_review_decision):
     if pr_state == "OPEN":
-        status = Formats.YELLOW.fmt(pr_state)
+        status = Formats.YELLOW(pr_state)
         if pr_review_decision == "APPROVED":
-            status += Formats.GREEN.fmt(" ")
+            status += Formats.GREEN(" ")
         elif pr_review_decision == "CHANGES_REQUESTED":
-            status += Formats.RED.fmt(" ")
+            status += Formats.RED(" ")
         else:
             status += "  "  # for column alignment
         return status
     elif pr_state == "CLOSED":
-        return Formats.RED.fmt(pr_state)
+        return Formats.RED(pr_state)
     elif pr_state == "MERGED":
-        return Formats.GREEN.fmt(pr_state)
+        return Formats.GREEN(pr_state)
 
 
 def parse_branches(concise):
@@ -243,7 +243,7 @@ def print_table(print_outs, branches, concise=False, highlight_branch=""):
     header = "Branch".ljust(first_column_width) + "  Deltas  Commit"
     if not concise:
         header += "   Status  PR "
-    print(Formats.BOLD.fmt(header))
+    print(Formats.BOLD(header))
     print("=" * (len(header) + 2))
 
     for tree_prefix, branch_name in print_outs:
@@ -252,7 +252,7 @@ def print_table(print_outs, branches, concise=False, highlight_branch=""):
         # Branch name column
         column_width_count = len(tree_prefix) + len(branch_name)
         if assume_main_is_upstream(branch.upstream_branch):
-            tree_prefix = Formats.YELLOW.fmt(tree_prefix.replace("─", "-"))
+            tree_prefix = Formats.YELLOW(tree_prefix.replace("─", "-"))
         first_column = tree_prefix + branch_name
         if branch.active_on_other_worktree:
             first_column += " (" + branch.other_worktree_basedir + ")"
@@ -267,11 +267,11 @@ def print_table(print_outs, branches, concise=False, highlight_branch=""):
             branch_ahead_str = str(branch.ahead)
             branch_behind_str = str(branch.behind)
             if branch.ahead > 0:
-                ahead = Formats.GREEN.fmt("+" + branch_ahead_str)
+                ahead = Formats.GREEN("+" + branch_ahead_str)
             else:
                 ahead = "+" + str(branch.ahead)
             if branch.behind > 0:
-                behind = Formats.RED.fmt("-" + branch_behind_str)
+                behind = Formats.RED("-" + branch_behind_str)
             else:
                 behind = "-" + branch_behind_str
             deltas = ahead + ":" + behind
@@ -280,7 +280,7 @@ def print_table(print_outs, branches, concise=False, highlight_branch=""):
         # Remote column
         remote_text = "\uE0A0" if branch.has_remote else " "
         if branch.has_remote and not branch.in_sync_with_remote:
-            remote_text = Formats.YELLOW.fmt(remote_text)
+            remote_text = Formats.YELLOW(remote_text)
 
         # Note: `ljust()` does not ignore escape characters (including for setting colors).
         # Therefore, `remote_text` cannot be combined into `first_column` or it would mess up
@@ -312,7 +312,7 @@ def print_table(print_outs, branches, concise=False, highlight_branch=""):
             modifiers += Formats.ITALIC
         if branch.name == highlight_branch:
             modifiers += Formats.INVERSE
-        print(modifiers.fmt(row_text))
+        print(modifiers(row_text))
 
 
 def main():

@@ -54,7 +54,7 @@ def filter_branches_by_pr_state(branches, pr_state, filter_state, skip_parents):
 def git_delete_after_user_confirmation(branches, filter_state):
     space_separated_branches = " ".join(branches)
     newline_separated_branches = "\n  ".join(branches)
-    print(f"The following branches are {Formats.GREEN.fmt(filter_state)}:")
+    print(f"The following branches are {Formats.GREEN(filter_state)}:")
     print(f"  {newline_separated_branches}")
     print(f"Delete all? (y/n)")
     if input() == "y":
@@ -97,7 +97,7 @@ def main():
     )
     if len(branches) == 0:
         print(
-            f"No branches with PR status {Formats.GREEN.fmt(filter_state)} to delete"
+            f"No branches with PR status {Formats.GREEN(filter_state)} to delete"
 
         )
         exit(0)

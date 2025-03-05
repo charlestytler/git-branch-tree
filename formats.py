@@ -9,6 +9,9 @@ class Format:
 
     def fmt(self, string):
         return self.value + string + self.reset
+    
+    def __call__(self, a):
+        return self.fmt(a)
 
     def __add__(self, other):
         """
